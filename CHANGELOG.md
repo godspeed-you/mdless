@@ -15,6 +15,16 @@ at the top for work that has not shipped yet.
 
 First stable release.
 
+### Fixed
+
+- **A signal no longer leaves the terminal unusable.** `SIGTERM`, `SIGHUP`,
+  `SIGINT` and `SIGQUIT` killed diple mid-frame, so the shell that came back
+  was still in raw mode on the alternate screen with the cursor hidden and
+  mouse reporting on — unusable until `reset`. They now run the same
+  restoration as every other exit path and then re-raise with the default
+  disposition, so the exit status still reports the signal. Ctrl-C and panics
+  were never affected.
+
 ### Added
 
 - `max_width` caps the line width before wrapping, and `center` puts the

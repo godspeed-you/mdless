@@ -91,6 +91,11 @@ url = "2.5"
 image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.23"
 
+# Only for the signal handler in `terminal::lifecycle` that restores the
+# terminal on SIGTERM/SIGHUP: write(2), tcsetattr(3), signal(2), raise(3).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 insta = "1.48"
 pretty_assertions = "1.4"

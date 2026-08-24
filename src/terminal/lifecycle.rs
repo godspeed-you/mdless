@@ -2,7 +2,9 @@
 //! hook that restores the terminal *before* the panic message is printed.
 //!
 //! No ANSI or style state may ever leak into the user's shell after exit, on
-//! **every** exit path: normal return, `?` propagation, panic and Ctrl-C.
+//! **every** exit path: normal return, `?` propagation, panic, Ctrl-C and the
+//! signals that would otherwise kill the process mid-frame (`SIGTERM`,
+//! `SIGHUP`, `SIGINT` from outside the terminal).
 //!
 //! The guard is RAII ([`TerminalGuard`]); restoration is idempotent and driven
 //! by a process-global state word so the panic hook — which cannot borrow the
@@ -97,6 +99,14 @@ impl TerminalGuard {
             return Err(TerminalError::NotATerminal);
         }
         install_panic_hook();
+        #[cfg(unix)]
+        {
+            // Before raw mode, so the handler has the line discipline it must
+            // put back, and before the first escape sequence, so a signal can
+            // never arrive with the terminal owed but no handler installed.
+            signals::save_termios();
+            signals::install();
+        }
 
         let mut out = io::stdout();
         enable_raw_mode()?;
@@ -189,6 +199,149 @@ pub fn restore_terminal() -> Result<(), TerminalError> {
     match first_error {
         Some(e) => Err(TerminalError::Io(e)),
         None => Ok(()),
+    }
+}
+
+/// The escape sequences that give back what `state` owes, in the order
+/// [`restore_terminal`] releases them.
+///
+/// They exist as plain byte strings because the signal handler cannot use
+/// `execute!`: formatting through `io::Write` locks stdout and allocates,
+/// neither of which is allowed in signal context. Empty slices are the "not
+/// owed" case and cost nothing to write. `sequences_match_crossterm` pins
+/// them against the commands [`restore_terminal`] uses, so the two paths
+/// cannot drift apart.
+fn owed_sequences(state: u8) -> [&'static [u8]; 5] {
+    const NONE: &[u8] = b"";
+    [
+        if state & STATE_KEYBOARD != 0 {
+            b"\x1b[<1u"
+        } else {
+            NONE
+        },
+        if state & STATE_CURSOR_HIDDEN != 0 {
+            b"\x1b[?25h"
+        } else {
+            NONE
+        },
+        if state & STATE_MOUSE != 0 {
+            b"\x1b[?1006l\x1b[?1015l\x1b[?1003l\x1b[?1002l\x1b[?1000l"
+        } else {
+            NONE
+        },
+        if state & STATE_ALT != 0 {
+            b"\x1b[?1049l"
+        } else {
+            NONE
+        },
+        b"\x1b[0m",
+    ]
+}
+
+/// Terminal restoration for signals whose default action would kill diple
+/// while it still owes the terminal raw mode, the alternate screen and a
+/// hidden cursor. Without this the shell that follows a `pkill diple` is
+/// unusable until `reset`.
+///
+/// Only async-signal-safe operations are allowed here, and everything used is
+/// on that list: `write(2)`, `tcsetattr(3)`, an atomic read and compile-time
+/// byte strings. Nothing allocates, locks or formats. The handler ends by
+/// restoring the default disposition and re-raising, so the exit status still
+/// reports the signal — a process that swallowed `SIGTERM` would be a worse
+/// bug than a dirty screen.
+#[cfg(unix)]
+mod signals {
+    use std::cell::UnsafeCell;
+    use std::mem::MaybeUninit;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Once;
+
+    use super::{owed_sequences, STATE, STATE_RAW};
+
+    /// `SIGINT` and `SIGQUIT` are in the list for `kill -INT`/`-QUIT` only:
+    /// raw mode turns off `ISIG`, so Ctrl-C and Ctrl-\\ reach diple as key
+    /// events and never as signals.
+    const SIGNALS: [libc::c_int; 4] = [libc::SIGTERM, libc::SIGHUP, libc::SIGINT, libc::SIGQUIT];
+
+    /// The line discipline as it was before raw mode, for the handler to put
+    /// back. Written once during `enter`, before the handler exists; read
+    /// only from the handler afterwards.
+    struct SavedTermios(UnsafeCell<MaybeUninit<libc::termios>>);
+    // SAFETY: see the field docs — write-once before any reader exists.
+    unsafe impl Sync for SavedTermios {}
+    static SAVED: SavedTermios = SavedTermios(UnsafeCell::new(MaybeUninit::uninit()));
+    static SAVED_OK: AtomicBool = AtomicBool::new(false);
+    static INSTALLED: Once = Once::new();
+
+    /// Remember the terminal's current line discipline. Call before enabling
+    /// raw mode.
+    ///
+    /// `STDOUT_FILENO` is the terminal diple drew on (`TerminalGuard::enter`
+    /// refuses to run otherwise). With the document on stdin, crossterm puts
+    /// the terminal into raw mode through `/dev/tty` instead — the same
+    /// terminal device, so the same `termios` restores it.
+    pub(super) fn save_termios() {
+        let mut termios = MaybeUninit::<libc::termios>::uninit();
+        // SAFETY: `tcgetattr` writes into the struct it is handed; the fd is a
+        // terminal on this path.
+        if unsafe { libc::tcgetattr(libc::STDOUT_FILENO, termios.as_mut_ptr()) } == 0 {
+            // SAFETY: startup, single-threaded, and the only reader is the
+            // handler installed after `SAVED_OK` is set.
+            unsafe { *SAVED.0.get() = termios };
+            SAVED_OK.store(true, Ordering::SeqCst);
+        }
+    }
+
+    /// Install the handler for [`SIGNALS`]. Idempotent.
+    pub(super) fn install() {
+        INSTALLED.call_once(|| {
+            for sig in SIGNALS {
+                // SAFETY: `handler` only performs async-signal-safe work.
+                unsafe { libc::signal(sig, handler as *const () as libc::sighandler_t) };
+            }
+        });
+    }
+
+    extern "C" fn handler(sig: libc::c_int) {
+        let state = STATE.swap(0, Ordering::SeqCst);
+        if state != 0 {
+            for sequence in owed_sequences(state) {
+                write_all(sequence);
+            }
+            if state & STATE_RAW != 0 && SAVED_OK.load(Ordering::SeqCst) {
+                // SAFETY: initialised before this handler could be installed
+                // and never written again.
+                unsafe {
+                    libc::tcsetattr(
+                        libc::STDOUT_FILENO,
+                        libc::TCSANOW,
+                        (*SAVED.0.get()).as_ptr(),
+                    )
+                };
+            }
+        }
+        // Die the way we were asked to.
+        // SAFETY: both calls are async-signal-safe.
+        unsafe {
+            libc::signal(sig, libc::SIG_DFL);
+            libc::raise(sig);
+        }
+    }
+
+    /// `write(2)` until the slice is out, retrying an interrupted write.
+    /// A terminal that has gone away (`EPIPE`, `EIO`) ends the attempt: there
+    /// is nothing left to restore it on.
+    fn write_all(mut bytes: &[u8]) {
+        while !bytes.is_empty() {
+            // SAFETY: `bytes` is a live slice of `bytes.len()` readable bytes.
+            let written =
+                unsafe { libc::write(libc::STDOUT_FILENO, bytes.as_ptr().cast(), bytes.len()) };
+            if written > 0 {
+                bytes = &bytes[written as usize..];
+            } else if std::io::Error::last_os_error().raw_os_error() != Some(libc::EINTR) {
+                return;
+            }
+        }
     }
 }
 
@@ -365,6 +518,51 @@ mod tests {
         // must not repeat the work.
         assert!(restore_terminal().is_ok());
         assert_eq!(STATE.load(Ordering::SeqCst), 0);
+    }
+
+    /// The signal handler cannot call `execute!`, so it writes the escape
+    /// sequences literally. If crossterm ever changes one of them, the safe
+    /// path would change with it and the handler would silently keep sending
+    /// the old bytes — this pins the two together.
+    #[test]
+    fn sequences_match_crossterm() {
+        use crossterm::event::{DisableMouseCapture, PopKeyboardEnhancementFlags};
+        use crossterm::Command;
+
+        fn ansi_of(command: &impl Command) -> String {
+            let mut s = String::new();
+            let _ = command.write_ansi(&mut s);
+            s
+        }
+
+        let all = owed_sequences(
+            STATE_KEYBOARD | STATE_CURSOR_HIDDEN | STATE_MOUSE | STATE_ALT | STATE_RAW,
+        );
+        assert_eq!(all[0], ansi_of(&PopKeyboardEnhancementFlags).as_bytes());
+        assert_eq!(all[1], ansi_of(&Show).as_bytes());
+        assert_eq!(all[2], ansi_of(&DisableMouseCapture).as_bytes());
+        assert_eq!(all[3], ansi_of(&LeaveAlternateScreen).as_bytes());
+        assert_eq!(all[4], b"\x1b[0m", "the SGR reset is unconditional");
+    }
+
+    /// Every bit is optional: a terminal is only given back what it was
+    /// actually lent, or a plain `q` would emit sequences no one asked for.
+    #[test]
+    fn only_owed_sequences_are_emitted() {
+        let none = owed_sequences(0);
+        assert!(
+            none[..4].iter().all(|s| s.is_empty()),
+            "nothing owed, nothing written but the SGR reset"
+        );
+        assert_eq!(none[4], b"\x1b[0m");
+
+        let alt_only = owed_sequences(STATE_ALT);
+        assert_eq!(alt_only[3], b"\x1b[?1049l");
+        assert!(alt_only[0].is_empty() && alt_only[1].is_empty() && alt_only[2].is_empty());
+
+        // Raw mode is a `termios` change, not an escape sequence: the handler
+        // undoes it with `tcsetattr`, so it must contribute no bytes here.
+        assert_eq!(owed_sequences(STATE_RAW), owed_sequences(0));
     }
 
     #[test]

@@ -646,6 +646,7 @@ dependencies = [
  "directories",
  "image",
  "insta",
+ "libc",
  "open",
  "pretty_assertions",
  "pulldown-cmark",

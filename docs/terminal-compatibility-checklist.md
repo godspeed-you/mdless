@@ -77,18 +77,18 @@ reported as passing; this entry records that report. Terminal versions and the
 `--print-capabilities` output were not captured — add them here if a later
 release needs them for comparison.
 
-One exception is recorded deliberately, because it was measured afterwards and
-contradicts a blanket pass:
+One exception was found after that run and has since been fixed:
 
-- **Step 4, the `SIGTERM` half, fails.** diple installs no signal handler
-  (`grep -rn SIGTERM src` finds nothing), so a `SIGTERM` terminates the
-  process before `TerminalGuard` can run. Measured against the 1.0.0 release
-  binary in a pty: the alternate screen is never left, the cursor stays
-  hidden, mouse reporting stays on and the pty stays in raw mode — the shell
-  that follows is unusable until `reset`. `Ctrl-C` and panics are unaffected;
-  both restore correctly, because they are ordinary exit paths rather than an
-  external signal.
+- **Step 4, the `SIGTERM` half, failed.** diple installed no signal handler, so
+  `SIGTERM` terminated the process before `TerminalGuard` could run: the
+  alternate screen was never left, the cursor stayed hidden, mouse reporting
+  stayed on and the terminal stayed in raw mode — unusable until `reset`.
+  `Ctrl-C` and panics were unaffected, being ordinary exit paths rather than
+  external signals.
 
-  Step 4 is one of the steps a failure in which blocks a release, so this
-  needs either a fix (a `SIGTERM`/`SIGHUP` handler that restores the terminal
-  and re-raises) or a deliberate, recorded waiver before the next tag.
+  Fixed before the 1.0.0 tag: `terminal::lifecycle` now restores the terminal
+  on `SIGTERM`, `SIGHUP`, `SIGINT` and `SIGQUIT` and re-raises with the default
+  disposition. Re-measured in a pty against the 1.0.0 binary, all four signals
+  leave the alternate screen, show the cursor, disable mouse reporting, reset
+  SGR and put the line discipline back, while the exit status still reports the
+  signal.
