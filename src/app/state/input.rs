@@ -294,14 +294,21 @@ impl App {
             }
             return;
         }
+        // Clicks in the centring margin belong to no line.
+        let margin = self.content_margin();
+        let column = usize::from(column).saturating_sub(usize::from(sidebar));
+        if column < margin || column >= margin + self.content_width() {
+            return;
+        }
         let line_index = self.top_line + usize::from(row);
         let Some(line) = self.tree.lines.get(line_index) else {
             return;
         };
         let node = line.node;
         let kind = line.kind.clone();
-        // Column inside the document, accounting for the sidebar and h-scroll.
-        let target_col = self.h_offset + usize::from(column.saturating_sub(sidebar));
+        // Column inside the document, accounting for the sidebar, the
+        // centring margin and the h-scroll.
+        let target_col = self.h_offset + column - margin;
         let mut col = 0usize;
         let mut clicked_link = None;
         for span in &line.spans {
@@ -500,6 +507,52 @@ mod tests {
         };
         a.handle_mouse(&click);
         assert!(a.tree().len() < before, "clicking the H1 collapsed it");
+    }
+
+    #[test]
+    fn clicks_land_on_the_document_through_the_centring_margin() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+
+        let cfg = crate::config::Config {
+            max_width: 60,
+            center: true,
+            mouse: true,
+            ..crate::config::Config::default()
+        };
+        let mut a = crate::testing::AppBuilder::new(DOC)
+            .size((100, 24))
+            .config(cfg)
+            .build();
+        a.caps.mouse = true;
+        let margin = a.content_margin();
+        assert_eq!(margin, 20);
+
+        let heading_row = a
+            .tree()
+            .heading_lines()
+            .first()
+            .map(|(line, _, _)| *line as u16)
+            .expect("a heading");
+        let click = |column: u16| MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row: heading_row,
+            modifiers: KeyModifiers::NONE,
+        };
+
+        // Inside the left margin: no line lives there.
+        let before = a.tree().len();
+        a.handle_mouse(&click(margin as u16 - 1));
+        assert_eq!(a.tree().len(), before, "the margin swallowed the click");
+
+        // The first document column is the first cell after the margin.
+        a.handle_mouse(&click(margin as u16));
+        assert!(a.tree().len() < before, "clicking the heading collapsed it");
+
+        // And the right margin is just as inert.
+        let before = a.tree().len();
+        a.handle_mouse(&click((margin + a.content_width()) as u16));
+        assert_eq!(a.tree().len(), before);
     }
 
     #[test]

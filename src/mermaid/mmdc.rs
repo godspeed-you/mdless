@@ -430,6 +430,35 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755));
         }
+        // Wait until the freshly written script can actually be exec'd.
+        // Writing it opened a descriptor for writing, and any test thread that
+        // forks a child in that instant hands the child an inherited copy of
+        // it; until that child reaches its own `exec` and the descriptor is
+        // closed, the kernel answers an `exec` of the script with ETXTBSY
+        // ("Text file busy"). Nothing about the runner is wrong then, so wait
+        // the window out here instead of failing the test for it. Once no
+        // process holds a write descriptor the file stays exec'able — it is
+        // never written again.
+        for _ in 0..100 {
+            match std::process::Command::new(&script)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+            {
+                Ok(mut probe) => {
+                    let _ = probe.kill();
+                    let _ = probe.wait();
+                    break;
+                }
+                // `libc::ETXTBSY`, without taking a dependency on libc for it.
+                Err(e) if e.raw_os_error() == Some(26) => {
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                Err(e) => panic!("the stand-in mmdc script cannot be started: {e}"),
+            }
+        }
+
         let runner = MmdcRunner::new(script.to_string_lossy().to_string())
             .with_timeout(Duration::from_millis(200))
             .with_cache_dir(None);

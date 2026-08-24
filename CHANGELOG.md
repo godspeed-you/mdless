@@ -11,7 +11,21 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+### Added
+
+- `max_width` caps the line width before wrapping, and `center` puts the
+  document in the middle of the screen with equal margins on both sides.
+  Available as `--max-width <COLUMNS>` and `--center` / `--no-center` too. The
+  sidebars keep the screen edges: a centred document has the table of contents
+  to its left and the key hints to its right, outside the text. Piped output
+  honours `max_width` but is never padded.
+
 ### Changed
+
+- A jump from the table of contents (`Enter`) keeps the focus in the sidebar
+  instead of returning to the document, so `j`/`k` go on walking the outline
+  and several headings can be visited in a row. `Esc` or `t` leaves the
+  sidebar.
 
 - **The project is now called `diple`.** The binary, the crate and the
   configuration all follow: run `diple`, configure it in

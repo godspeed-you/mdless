@@ -19,25 +19,7 @@ so they stay correct when the terminal is resized.
 diple README.md
 ```
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│ README.md                                      37%  142/380 │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  Project Foo                                               │
-│  ═══════════                                               │
-│                                                            │
-│  This project provides ...                                 │
-│                                                            │
-│  Installation                                              │
-│  ────────────                                              │
-│                                                            │
-│    $ cargo install foo                                     │
-│                                                            │
-│  ▶ Configuration                                           │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
+![diple in action](docs/demo.gif)
 
 ## Features
 
@@ -146,7 +128,8 @@ Full list, including how to rebind: [docs/keybindings.md](docs/keybindings.md).
 diple [OPTIONS] [FILE]
 
   --theme <auto|dark|light|NAME>     --color <auto|always|never>
-  --width <COLUMNS>                  --mouse / --no-mouse
+  --width <COLUMNS>                  --max-width <COLUMNS>
+  --center / --no-center             --mouse / --no-mouse
   --toc / --no-toc                   --key-hints / --no-key-hints
   --line-numbers / --no-line-numbers
   --wrap / --no-wrap
@@ -166,6 +149,8 @@ theme = "auto"
 mouse = true
 toc = false
 key_hints = false
+max_width = 0
+center = false
 
 [table]
 mode = "auto"

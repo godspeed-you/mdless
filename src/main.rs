@@ -251,7 +251,13 @@ fn print_plain(
 ) -> Result<(), Failure> {
     let color = app::color_level(cfg.color, caps);
     let theme = app::resolve_theme(&cfg.theme, color);
-    let width = usize::from(width.unwrap_or(caps.size.0)).max(1);
+    let mut width = usize::from(width.unwrap_or(caps.size.0)).max(1);
+    // `max_width` narrows this path too, so `diple doc.md | less -R` gets the
+    // same measure as the interactive view. Centring does not apply: it is a
+    // property of the screen, and this output goes to a pipe or a file.
+    if cfg.max_width > 0 {
+        width = width.min(usize::from(cfg.max_width));
+    }
     let diagrams = build_diagrams(doc, cfg, caps, width);
 
     let mut opts = LayoutOptions::new(width, &theme);

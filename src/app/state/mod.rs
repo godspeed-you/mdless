@@ -353,15 +353,46 @@ impl App {
         (toc, hints)
     }
 
-    /// Width of the document area in columns (excludes both sidebars).
-    pub(crate) fn content_width(&self) -> usize {
+    /// Columns left over for the document once both sidebars took theirs.
+    ///
+    /// This is the space the document is centred in, not necessarily the
+    /// width it is laid out at — see [`App::content_width`].
+    pub(crate) fn content_available(&self) -> usize {
         let total = self.size.0.max(1);
         let (toc, hints) = self.sidebar_widths();
-        let available = usize::from(total.saturating_sub(toc).saturating_sub(hints)).max(1);
-        match self.width_override {
-            Some(w) => usize::from(w.max(1)).min(available),
-            None => available,
+        usize::from(total.saturating_sub(toc).saturating_sub(hints)).max(1)
+    }
+
+    /// Width of the document area in columns (excludes both sidebars).
+    ///
+    /// Both `--width` and `[max_width]` only ever narrow: the layout width is
+    /// the smallest of the available columns and whatever limits are set, so
+    /// a limit wider than the terminal is a no-op rather than a horizontal
+    /// scroll nobody asked for.
+    pub(crate) fn content_width(&self) -> usize {
+        let available = self.content_available();
+        let mut width = available;
+        if let Some(w) = self.width_override {
+            width = width.min(usize::from(w.max(1)));
         }
+        if self.config.max_width > 0 {
+            width = width.min(usize::from(self.config.max_width));
+        }
+        width.max(1)
+    }
+
+    /// Columns of empty space left of the document.
+    ///
+    /// Zero unless `center` is on and the document is narrower than the space
+    /// it has. The leftover column of an odd remainder goes to the right, so
+    /// the two margins differ by at most one cell.
+    pub(crate) fn content_margin(&self) -> usize {
+        if !self.config.center {
+            return 0;
+        }
+        self.content_available()
+            .saturating_sub(self.content_width())
+            / 2
     }
 
     /// Height of the document area in rows (excludes status and prompt rows).
@@ -545,6 +576,7 @@ pub(super) mod test_support {
 mod tests {
     use crate::app::state::test_support::*;
     use crate::config::actions::Action;
+    use crate::testing;
 
     #[test]
     fn scrolling_clamps_at_both_ends() {
@@ -558,6 +590,69 @@ mod tests {
             key(&mut a, 'k');
         }
         assert_eq!(a.top_line(), 0);
+    }
+
+    #[test]
+    fn max_width_caps_the_layout_width_and_center_splits_the_rest() {
+        let mut cfg = crate::config::Config {
+            max_width: 60,
+            ..crate::config::Config::default()
+        };
+        let mut a = testing::AppBuilder::new(DOC)
+            .size((100, 12))
+            .config(cfg.clone())
+            .build();
+        assert_eq!(a.content_available(), 100);
+        assert_eq!(a.content_width(), 60);
+        // Off by default: the document keeps the left edge.
+        assert_eq!(a.content_margin(), 0);
+
+        cfg.center = true;
+        a = testing::AppBuilder::new(DOC)
+            .size((100, 12))
+            .config(cfg.clone())
+            .build();
+        // Equal margins; the odd column, if any, goes right.
+        assert_eq!(a.content_margin(), 20);
+        assert_eq!(
+            a.content_available() - a.content_width() - a.content_margin(),
+            20
+        );
+
+        // An odd remainder differs by one cell, never more.
+        let a = testing::AppBuilder::new(DOC)
+            .size((101, 12))
+            .config(cfg.clone())
+            .build();
+        assert_eq!(a.content_margin(), 20);
+        assert_eq!(
+            a.content_available() - a.content_width() - a.content_margin(),
+            21
+        );
+
+        // A limit wider than the terminal only ever narrows: no margins, no
+        // horizontal scroll invented out of nothing.
+        cfg.max_width = 500;
+        let a = testing::AppBuilder::new(DOC)
+            .size((100, 12))
+            .config(cfg)
+            .build();
+        assert_eq!(a.content_width(), 100);
+        assert_eq!(a.content_margin(), 0);
+    }
+
+    #[test]
+    fn max_width_and_width_override_both_narrow() {
+        let cfg = crate::config::Config {
+            max_width: 70,
+            ..crate::config::Config::default()
+        };
+        let a = testing::AppBuilder::new(DOC)
+            .size((100, 12))
+            .config(cfg)
+            .width_override(Some(50))
+            .build();
+        assert_eq!(a.content_width(), 50, "the smaller of the two wins");
     }
 
     #[test]

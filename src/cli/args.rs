@@ -31,6 +31,15 @@ pub struct CliArgs {
     /// Override the detected terminal width.
     #[arg(long, value_name = "COLUMNS", help_heading = "Appearance")]
     pub width: Option<u16>,
+    /// Limit the line width before wrapping (0: the full width).
+    #[arg(long, value_name = "COLUMNS", help_heading = "Appearance")]
+    pub max_width: Option<u16>,
+    /// Centre the document horizontally.
+    #[arg(long, overrides_with = "no_center", help_heading = "Appearance")]
+    pub center: bool,
+    /// Do not centre the document horizontally.
+    #[arg(long, overrides_with = "center", help_heading = "Appearance")]
+    pub no_center: bool,
     /// Enable mouse support.
     #[arg(long, overrides_with = "no_mouse", help_heading = "Appearance")]
     pub mouse: bool,
@@ -142,6 +151,11 @@ impl CliArgs {
     pub fn wrap_override(&self) -> Option<bool> {
         flag_pair(self.wrap, self.no_wrap)
     }
+
+    /// `--center` / `--no-center` as an override.
+    pub fn center_override(&self) -> Option<bool> {
+        flag_pair(self.center, self.no_center)
+    }
 }
 
 fn flag_pair(yes: bool, no: bool) -> Option<bool> {
@@ -175,6 +189,9 @@ mod tests {
             "never",
             "--width",
             "100",
+            "--max-width",
+            "90",
+            "--center",
             "--no-mouse",
             "--toc",
             "--line-numbers",
@@ -190,6 +207,8 @@ mod tests {
         assert_eq!(a.theme.as_deref(), Some("dark"));
         assert_eq!(a.color, Some(ColorMode::Never));
         assert_eq!(a.width, Some(100));
+        assert_eq!(a.max_width, Some(90));
+        assert_eq!(a.center_override(), Some(true));
         assert_eq!(a.mouse_override(), Some(false));
         assert_eq!(a.toc_override(), Some(true));
         assert_eq!(a.line_numbers_override(), Some(true));

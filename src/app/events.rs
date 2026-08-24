@@ -71,15 +71,30 @@ pub(crate) fn areas(app: &App, area: Rect) -> Areas {
     let (sidebar_width, hints_width) = app.sidebar_widths();
     let sidebar_width = sidebar_width.min(area.width);
     let hints_width = hints_width.min(area.width.saturating_sub(sidebar_width));
-    let content_width = area
+    let available = area
         .width
         .saturating_sub(sidebar_width)
         .saturating_sub(hints_width);
+    // The document may be narrower than the space between the sidebars —
+    // `max_width` caps it and `center` splits the remainder into two margins.
+    // The sidebars keep the screen edges either way, so a centred document
+    // has them outside its text rather than beside it.
+    let content_width = u16::try_from(app.content_width())
+        .unwrap_or(u16::MAX)
+        .min(available);
+    let margin = u16::try_from(app.content_margin())
+        .unwrap_or(0)
+        .min(available - content_width);
     Areas {
         sidebar: Rect::new(area.x, area.y, sidebar_width, body_height),
-        content: Rect::new(area.x + sidebar_width, area.y, content_width, body_height),
+        content: Rect::new(
+            area.x + sidebar_width + margin,
+            area.y,
+            content_width,
+            body_height,
+        ),
         hints: Rect::new(
-            area.x + sidebar_width + content_width,
+            area.x + sidebar_width + available,
             area.y,
             hints_width,
             body_height,
@@ -509,6 +524,43 @@ mod tests {
     }
 
     #[test]
+    fn a_centred_document_keeps_the_sidebars_on_the_screen_edges() {
+        let cfg = crate::config::Config {
+            max_width: 60,
+            center: true,
+            ..crate::config::Config::default()
+        };
+        let mut a = testing::AppBuilder::new("# T\n\ntext\n")
+            .size((100, 24))
+            .config(cfg)
+            .build();
+
+        // No sidebars: equal margins around the document.
+        let split = areas(&a, Rect::new(0, 0, 100, 24));
+        assert_eq!(split.content.width, 60);
+        assert_eq!(split.content.x, 20);
+        assert_eq!(100 - (split.content.x + split.content.width), 20);
+
+        // With both sidebars open they still hug the edges, and the document
+        // is centred in what they leave over.
+        a.apply(crate::config::actions::Action::ToggleToc);
+        a.apply(crate::config::actions::Action::ToggleKeyHints);
+        let split = areas(&a, Rect::new(0, 0, 100, 24));
+        assert!(split.sidebar.width > 0 && split.hints.width > 0);
+        assert_eq!(split.sidebar.x, 0, "the TOC keeps the left edge");
+        assert_eq!(
+            split.hints.x + split.hints.width,
+            100,
+            "the hints keep the right edge"
+        );
+        let available = 100 - split.sidebar.width - split.hints.width;
+        assert_eq!(split.content.width, available.min(60));
+        let left = split.content.x - split.sidebar.width;
+        let right = split.hints.x - (split.content.x + split.content.width);
+        assert!(right >= left && right - left <= 1, "{left} vs {right}");
+    }
+
+    #[test]
     fn areas_make_room_for_the_key_hints_sidebar_on_the_right() {
         let mut a = app("# T\n\ntext\n", (120, 24));
         a.apply(crate::config::actions::Action::ToggleKeyHints);
@@ -713,5 +765,32 @@ mod tests {
         let text: String = buffer.content().iter().map(|c| c.symbol()).collect();
         assert!(text.contains("Title"));
         assert!(text.contains("t.md"), "the status bar shows the file name");
+    }
+
+    #[test]
+    fn a_centred_frame_pads_both_sides_of_every_document_row() {
+        use ratatui::backend::TestBackend;
+        let cfg = crate::config::Config {
+            max_width: 20,
+            center: true,
+            ..crate::config::Config::default()
+        };
+        let a = testing::AppBuilder::new("# Title\n\nSome text that is long enough to wrap.\n")
+            .size((40, 10))
+            .config(cfg)
+            .build();
+        let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("backend");
+        terminal.draw(|f| draw(&a, f)).expect("draw");
+        let buffer = terminal.backend().buffer().clone();
+
+        let row = |y: u16| -> String { (0..40).map(|x| buffer[(x, y)].symbol()).collect() };
+        // 40 columns, a 20-column document: 10 blank cells on either side of
+        // every document row (the status row spans the full width).
+        for y in 0..9 {
+            let line = row(y);
+            assert_eq!(&line[..10], " ".repeat(10), "row {y}: {line:?}");
+            assert!(line.ends_with(&" ".repeat(10)), "row {y}: {line:?}");
+        }
+        assert!(row(0).contains("Title"), "{:?}", row(0));
     }
 }

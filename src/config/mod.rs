@@ -66,6 +66,12 @@ impl Config {
         if let Some(wrap) = cli.wrap_override() {
             merged.wrap = wrap;
         }
+        if let Some(max_width) = cli.max_width {
+            merged.max_width = max_width;
+        }
+        if let Some(center) = cli.center_override() {
+            merged.center = center;
+        }
         if let Some(backend) = cli.mermaid {
             merged.mermaid.backend = backend;
         }
@@ -105,6 +111,25 @@ mod tests {
         assert_eq!(merged.mermaid.backend, MermaidBackend::Source);
         // Untouched values survive.
         assert_eq!(merged.table.max_column_width, 60);
+    }
+
+    #[test]
+    fn cli_overrides_the_width_limit_and_centring() {
+        let base = Config {
+            max_width: 80,
+            center: true,
+            ..Config::default()
+        };
+        let merged = base
+            .merged_with_env(&cli(&["--max-width", "140", "--no-center"]), |_| None)
+            .unwrap();
+        assert_eq!(merged.max_width, 140);
+        assert!(!merged.center);
+
+        // Unset flags leave the configured values alone.
+        let merged = base.merged_with_env(&cli(&[]), |_| None).unwrap();
+        assert_eq!(merged.max_width, 80);
+        assert!(merged.center);
     }
 
     #[test]

@@ -61,7 +61,7 @@ fi
 printf '\033[1;34m==>\033[0m generated man page and completions\n'
 cargo build --release --locked --quiet
 BIN="target/release/diple"
-"$BIN" --generate-man | grep -q '^\.TH diple' \
+"$BIN" --generate-man | grep -qi '^\.TH diple' \
   || { echo "error: --generate-man produced no .TH header" >&2; exit 1; }
 for sh in bash zsh fish; do
   [ -n "$("$BIN" --generate-completions "$sh")" ] \
