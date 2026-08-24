@@ -93,10 +93,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-musl
+        include:
+          - target: x86_64-unknown-linux-gnu
+            flags: ''
+          - target: x86_64-unknown-linux-musl
+            flags: ''
+          # aarch64 builds against the pure-Rust regex engine: the default
+          # oniguruma engine is C, and cross-compiling C for musl needs a musl
+          # cross toolchain that the runner does not have. Highlighting is
+          # slower on this target, everything else is identical.
+          - target: aarch64-unknown-linux-musl
+            flags: '--no-default-features --features syntax-fancy'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -107,23 +114,29 @@ jobs:
       - run: rustup target add ${{ matrix.target }}
       # See ci.yml: oniguruma compiles C, so musl targets need a musl compiler
       # and the aarch64 target needs a cross compiler.
-      - name: Install cross toolchain
+      - name: Set up the linker for this target
         run: |
           case "${{ matrix.target }}" in
             x86_64-unknown-linux-musl)
+              # oniguruma compiles C: musl needs a real musl compiler, because
+              # the host's glibc cc emits _FORTIFY_SOURCE symbols (__memcpy_chk)
+              # that musl does not provide.
               sudo apt-get update
               sudo apt-get install -y --no-install-recommends musl-tools
               echo "CC_x86_64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
               echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc" >> "$GITHUB_ENV"
               ;;
             aarch64-unknown-linux-musl)
-              sudo apt-get update
-              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
-              echo "CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-              echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+              # No C is compiled for this target, so the only thing missing is a
+              # linker that understands aarch64 — the toolchain ships one.
+              host="$(rustc -vV | sed -n 's/^host: //p')"
+              lld="$(rustc --print sysroot)/lib/rustlib/$host/bin/gcc-ld/ld.lld"
+              test -x "$lld"
+              echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=$lld" >> "$GITHUB_ENV"
+              echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS=-Clinker-flavor=ld -Clink-self-contained=yes" >> "$GITHUB_ENV"
               ;;
           esac
-      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }} ${{ matrix.flags }}
       - name: Collect binary
         run: |
           mkdir -p dist "artifact-target/${{ matrix.target }}/release"
@@ -264,9 +277,15 @@ jobs:
           ref: ${{ needs.version.outputs.tag }}
       - name: makepkg, install, remove
         run: |
-          pacman -Syu --noconfirm rust git
+          # oniguruma and pkgconf up front: `makepkg -s` runs as an
+          # unprivileged user and cannot install dependencies itself here.
+          pacman -Syu --noconfirm rust git oniguruma pkgconf
           useradd -m builder && chown -R builder .
           su builder -c "cd packaging/arch && makepkg -s --noconfirm"
+          # The Arch container image never extracts man pages or docs, so the
+          # install check below would assert against files pacman deliberately
+          # dropped. Restore the behaviour of a real Arch system.
+          sed -i '/^NoExtract/d' /etc/pacman.conf
           pacman -U --noconfirm packaging/arch/*.pkg.tar.zst
           mdless --version
           test -f /usr/share/man/man1/mdless.1.gz || test -f /usr/share/man/man1/mdless.1

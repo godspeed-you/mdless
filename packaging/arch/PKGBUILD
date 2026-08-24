@@ -6,8 +6,8 @@ pkgdesc="Interactive terminal Markdown reader with semantic navigation, folding,
 arch=('x86_64' 'aarch64')
 url="https://github.com/godspeed-you/mdless"
 license=('MIT')
-depends=('gcc-libs')
-makedepends=('cargo' 'gcc')
+depends=('gcc-libs' 'oniguruma')
+makedepends=('cargo' 'gcc' 'pkgconf')
 optdepends=(
   'mermaid-cli: image rendering of Mermaid diagrams that the built-in renderer does not support'
   'xdg-utils: opening links from the document'
@@ -25,12 +25,17 @@ build() {
   cd "$pkgname-$pkgver"
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target
+  # Link Arch's oniguruma instead of the copy onig_sys vendors and builds:
+  # makepkg's link flags drop the vendored static library, so the build fails
+  # with undefined onig_* symbols — and Arch wants system libraries anyway.
+  export RUSTONIG_SYSTEM_LIBONIG=1
   cargo build --frozen --release
 }
 
 check() {
   cd "$pkgname-$pkgver"
   export RUSTUP_TOOLCHAIN=stable
+  export RUSTONIG_SYSTEM_LIBONIG=1
   export INSTA_UPDATE=no
   cargo test --frozen --release
 }
