@@ -11,7 +11,19 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+### Added
+
+- `max_width` (`--max-width <COLUMNS>`) caps the line width before wrapping,
+  so a wide terminal no longer forces an uncomfortably long measure. It only
+  ever narrows, the sidebars keep the screen edges, and piped output honours
+  it too.
+
 ### Changed
+
+- A jump from the table of contents (`Enter`) keeps the focus in the sidebar
+  instead of returning to the document, so `j`/`k` go on walking the outline
+  and several headings can be visited in a row. `Esc` or `t` leaves the
+  sidebar.
 
 - **The project is now called `diple`.** The binary, the crate and the
   configuration all follow: run `diple`, configure it in

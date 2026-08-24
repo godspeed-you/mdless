@@ -71,15 +71,21 @@ pub(crate) fn areas(app: &App, area: Rect) -> Areas {
     let (sidebar_width, hints_width) = app.sidebar_widths();
     let sidebar_width = sidebar_width.min(area.width);
     let hints_width = hints_width.min(area.width.saturating_sub(sidebar_width));
-    let content_width = area
+    let available = area
         .width
         .saturating_sub(sidebar_width)
         .saturating_sub(hints_width);
+    // `max_width` can make the document narrower than the space between the
+    // sidebars. The sidebars keep the screen edges regardless, so the unused
+    // columns fall between the document and the hints.
+    let content_width = u16::try_from(app.content_width())
+        .unwrap_or(u16::MAX)
+        .min(available);
     Areas {
         sidebar: Rect::new(area.x, area.y, sidebar_width, body_height),
         content: Rect::new(area.x + sidebar_width, area.y, content_width, body_height),
         hints: Rect::new(
-            area.x + sidebar_width + content_width,
+            area.x + sidebar_width + available,
             area.y,
             hints_width,
             body_height,
@@ -506,6 +512,30 @@ mod tests {
         assert!(split.sidebar.width > 0);
         assert_eq!(split.content.x, split.sidebar.width);
         assert_eq!(split.content.width + split.sidebar.width, 80);
+    }
+
+    #[test]
+    fn max_width_narrows_the_document_but_not_the_sidebars() {
+        let cfg = crate::config::Config {
+            max_width: 60,
+            ..crate::config::Config::default()
+        };
+        let mut a = testing::AppBuilder::new("# T\n\ntext\n")
+            .size((100, 24))
+            .config(cfg)
+            .build();
+
+        let split = areas(&a, Rect::new(0, 0, 100, 24));
+        assert_eq!(split.content.width, 60);
+        assert_eq!(split.content.x, 0);
+
+        // The hints sidebar still hugs the right edge: the columns the limit
+        // gives up sit between the document and the sidebar, not inside it.
+        a.apply(crate::config::actions::Action::ToggleKeyHints);
+        let split = areas(&a, Rect::new(0, 0, 100, 24));
+        assert!(split.hints.width > 0);
+        assert_eq!(split.hints.x + split.hints.width, 100);
+        assert_eq!(split.content.width, 60);
     }
 
     #[test]

@@ -31,6 +31,9 @@ pub struct CliArgs {
     /// Override the detected terminal width.
     #[arg(long, value_name = "COLUMNS", help_heading = "Appearance")]
     pub width: Option<u16>,
+    /// Limit the line width before wrapping (0: the full width).
+    #[arg(long, value_name = "COLUMNS", help_heading = "Appearance")]
+    pub max_width: Option<u16>,
     /// Enable mouse support.
     #[arg(long, overrides_with = "no_mouse", help_heading = "Appearance")]
     pub mouse: bool,
@@ -175,6 +178,8 @@ mod tests {
             "never",
             "--width",
             "100",
+            "--max-width",
+            "90",
             "--no-mouse",
             "--toc",
             "--line-numbers",
@@ -190,6 +195,7 @@ mod tests {
         assert_eq!(a.theme.as_deref(), Some("dark"));
         assert_eq!(a.color, Some(ColorMode::Never));
         assert_eq!(a.width, Some(100));
+        assert_eq!(a.max_width, Some(90));
         assert_eq!(a.mouse_override(), Some(false));
         assert_eq!(a.toc_override(), Some(true));
         assert_eq!(a.line_numbers_override(), Some(true));

@@ -294,6 +294,12 @@ impl App {
             }
             return;
         }
+        // With a width limit the document ends before the hints sidebar
+        // does; clicks in between belong to no line.
+        let column = usize::from(column).saturating_sub(usize::from(sidebar));
+        if column >= self.content_width() {
+            return;
+        }
         let line_index = self.top_line + usize::from(row);
         let Some(line) = self.tree.lines.get(line_index) else {
             return;
@@ -301,7 +307,7 @@ impl App {
         let node = line.node;
         let kind = line.kind.clone();
         // Column inside the document, accounting for the sidebar and h-scroll.
-        let target_col = self.h_offset + usize::from(column.saturating_sub(sidebar));
+        let target_col = self.h_offset + column;
         let mut col = 0usize;
         let mut clicked_link = None;
         for span in &line.spans {
@@ -500,6 +506,46 @@ mod tests {
         };
         a.handle_mouse(&click);
         assert!(a.tree().len() < before, "clicking the H1 collapsed it");
+    }
+
+    #[test]
+    fn clicks_past_a_width_limited_document_hit_nothing() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+
+        let cfg = crate::config::Config {
+            max_width: 60,
+            mouse: true,
+            ..crate::config::Config::default()
+        };
+        let mut a = crate::testing::AppBuilder::new(DOC)
+            .size((100, 24))
+            .config(cfg)
+            .build();
+        a.caps.mouse = true;
+        assert_eq!(a.content_width(), 60);
+
+        let heading_row = a
+            .tree()
+            .heading_lines()
+            .first()
+            .map(|(line, _, _)| *line as u16)
+            .expect("a heading");
+        let click = |column: u16| MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row: heading_row,
+            modifiers: KeyModifiers::NONE,
+        };
+
+        // Past the limit there is no document, even though the terminal has
+        // 40 more columns.
+        let before = a.tree().len();
+        a.handle_mouse(&click(60));
+        assert_eq!(a.tree().len(), before, "the unused columns swallowed it");
+
+        // Inside it the heading still folds.
+        a.handle_mouse(&click(0));
+        assert!(a.tree().len() < before, "clicking the heading collapsed it");
     }
 
     #[test]

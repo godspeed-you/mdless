@@ -146,8 +146,9 @@ Full list, including how to rebind: [docs/keybindings.md](docs/keybindings.md).
 diple [OPTIONS] [FILE]
 
   --theme <auto|dark|light|NAME>     --color <auto|always|never>
-  --width <COLUMNS>                  --mouse / --no-mouse
-  --toc / --no-toc                   --key-hints / --no-key-hints
+  --width <COLUMNS>                  --max-width <COLUMNS>
+  --mouse / --no-mouse               --toc / --no-toc
+  --key-hints / --no-key-hints
   --line-numbers / --no-line-numbers
   --wrap / --no-wrap
   --mermaid <auto|terminal|mmdc|source>
@@ -166,6 +167,7 @@ theme = "auto"
 mouse = true
 toc = false
 key_hints = false
+max_width = 0
 
 [table]
 mode = "auto"

@@ -228,6 +228,7 @@ toc = false             # start with the table\-of\-contents sidebar open
 key_hints = false       # start with the key hints sidebar open
 line_numbers = false    # document line numbers
 wrap = true             # reflow paragraphs to the terminal width
+max_width = 0           # cap the line width in columns; 0 = the full width
 
 [table]
 mode = "auto"           # auto | wrap | scroll | compact
