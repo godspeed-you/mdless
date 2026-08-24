@@ -102,7 +102,12 @@ impl App {
         line < bottom && line + self.content_height() >= top
     }
 
-    /// Jump to the selected TOC entry.
+    /// Jump to the selected TOC entry, keeping the focus in the sidebar.
+    ///
+    /// A jump is a move, not a decision: the reader is browsing the outline,
+    /// and the next `j`/`k` belongs to the outline too. So the mode stays
+    /// [`Mode::Toc`] and `j`/`k` keep walking the headings; `Esc` (or `t`)
+    /// leaves the sidebar, and that is the only way out of it.
     pub(crate) fn toc_jump(&mut self) {
         let Some(section) = self.toc.selected_section() else {
             return;
@@ -115,7 +120,6 @@ impl App {
         if let Some(line) = self.tree.first_line_of(heading) {
             self.scroll_with_context(line);
         }
-        self.mode = Mode::Normal;
     }
 
     // -- mermaid ----------------------------------------------------------
@@ -179,12 +183,38 @@ mod tests {
         let section = a.toc.selected_section().expect("selection");
         let heading = a.doc.heading_of(section).map(|h| h.text.clone());
         a.apply(Action::Activate);
-        assert_eq!(a.mode(), Mode::Normal);
         let at_top = a.cursor_node().and_then(|n| a.doc.node(n));
         assert!(
             matches!(at_top.map(|n| &n.kind), Some(NodeKind::Heading(h)) if Some(&h.text) == heading.as_ref()),
             "jumped to {heading:?}"
         );
+    }
+
+    #[test]
+    fn a_toc_jump_keeps_the_focus_in_the_sidebar() {
+        // Browsing the outline is a sequence of jumps, so the sidebar keeps
+        // the focus: `j`/`k` go on walking the headings after a jump, and
+        // only `Esc` (or `t`) hands the keys back to the document.
+        let mut a = app();
+        a.apply(Action::ToggleToc);
+        a.apply(Action::ScrollDown);
+        let selected = a.toc.selected;
+
+        a.apply(Action::Activate);
+        assert_eq!(a.mode(), Mode::Toc, "the jump kept the focus");
+        assert!(a.toc.open, "and the sidebar stayed open");
+        assert_eq!(a.toc.selected, selected, "on the entry it jumped to");
+
+        a.apply(Action::ScrollDown);
+        assert_eq!(
+            a.toc.selected,
+            selected + 1,
+            "`j` still moves the TOC selection, not the document"
+        );
+
+        a.apply(Action::Cancel);
+        assert_eq!(a.mode(), Mode::Normal, "`Esc` is the way out");
+        assert!(!a.toc.open);
     }
 
     #[test]

@@ -83,7 +83,9 @@ links are also emitted as native terminal hyperlinks.
 | `q`, `Ctrl-C` | `quit` | quit |
 
 Inside the TOC sidebar, `j`/`k` move the selection and `Enter` jumps to the
-heading; the section currently shown in the document is marked.
+heading; the section currently shown in the document is marked. A jump keeps
+the focus in the sidebar, so `j`/`k` go on walking the outline and further
+jumps need no reopening; `Esc` or `t` hands the keys back to the document.
 
 The key hints sidebar (`K`) is drawn on the right-hand edge and lists, grouped
 and labelled, the commands that are available *right now* — it is not a static

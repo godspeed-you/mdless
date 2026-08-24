@@ -22,6 +22,11 @@ at the top for work that has not shipped yet.
 
 ### Changed
 
+- A jump from the table of contents (`Enter`) keeps the focus in the sidebar
+  instead of returning to the document, so `j`/`k` go on walking the outline
+  and several headings can be visited in a row. `Esc` or `t` leaves the
+  sidebar.
+
 - **The project is now called `diple`.** The binary, the crate and the
   configuration all follow: run `diple`, configure it in
   `~/.config/diple/config.toml` and override it with `DIPLE_*` environment
