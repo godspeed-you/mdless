@@ -2,6 +2,11 @@
 
 **`less` for Markdown documents instead of text files.**
 
+[![CI](https://github.com/godspeed-you/mdless/actions/workflows/ci.yml/badge.svg)](https://github.com/godspeed-you/mdless/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/godspeed-you/mdless?sort=semver)](https://github.com/godspeed-you/mdless/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/godspeed-you/mdless)](LICENSE)
+[![Rust 1.80+](https://img.shields.io/badge/rust-1.80%2B-orange?logo=rust)](rust-toolchain.toml)
+
 An interactive terminal Markdown reader with semantic navigation, collapsible
 sections, terminal-aware tables, syntax-highlighted code and Mermaid diagrams.
 
