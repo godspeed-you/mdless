@@ -304,7 +304,7 @@ log "generating the man page and shell completions with $GENERATOR"
 [ -s "$STAGE/diple.1" ] || die "the generated man page is empty"
 # Fail loudly if the page does not even name the program: that would mean the
 # generator broke, and packages must never ship a broken man page.
-grep -q '^\.TH diple' "$STAGE/diple.1" || die "the generated man page has no .TH header"
+grep -qi '^\.TH diple' "$STAGE/diple.1" || die "the generated man page has no .TH header"
 
 "$GENERATOR" --generate-completions bash > "$STAGE/diple.bash"
 "$GENERATOR" --generate-completions zsh  > "$STAGE/_diple"
