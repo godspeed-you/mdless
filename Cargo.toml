@@ -1,0 +1,187 @@
+[package]
+name = "mdless"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.80"
+authors = ["Marcel Arentz <gdspd_you@open-one.de>"]
+# Doubles as the Debian synopsis, which must stay on one short line.
+description = "Interactive terminal Markdown reader with folding and diagrams"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/godspeed-you/mdless"
+repository = "https://github.com/godspeed-you/mdless"
+documentation = "https://docs.rs/mdless"
+categories = ["command-line-utilities", "text-processing"]
+keywords = ["markdown", "pager", "terminal", "tui", "mermaid"]
+# Keep the published crate small: the benches, the fuzz crate and the CI
+# plumbing are not needed to build or use mdless. `tests/` stays in, snapshots
+# included, so `cargo package` ships a crate whose test suite actually runs.
+exclude = [
+    "/.github",
+    "/fuzz",
+    "/packaging",
+    "/scripts",
+]
+
+[lib]
+name = "mdless"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mdless"
+path = "src/main.rs"
+
+[features]
+# Syntect regex engine.
+#
+# `syntax-onig` (C Oniguruma) is the default because the startup budget (p50 <
+# 30 ms to first frame) cannot be met without it. What dominates the first
+# frame is compiling a syntax definition's patterns on first use, and mdless
+# cannot defer that when the code block is on the first screen — which is where
+# a README puts it. Measured in a 100x24 pty over 25 runs each:
+#
+#     fancy-regex   p50 72.7 ms   p95 76.3 ms   (both budgets missed)
+#     oniguruma     p50 22.3 ms   p95 27.2 ms   (both budgets met)
+#
+# `onig_sys` compiles C, so building from source needs a C compiler for the
+# target. For `*-linux-musl` that must be a real musl compiler: with the
+# host's glibc `cc`, Ubuntu's default `_FORTIFY_SOURCE` emits `__memcpy_chk`
+# and `__snprintf_chk`, which do not exist in musl and fail at link time.
+# Install `musl-tools` and point cargo at it:
+#
+#     CC_x86_64_unknown_linux_musl=musl-gcc \
+#     CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc \
+#     cargo build --release --target x86_64-unknown-linux-musl
+#
+# This is verified: the resulting binary is statically linked and its output
+# is byte-identical to the glibc build. CI and scripts/release.sh do it.
+#
+# `syntax-fancy` (pure Rust, `fancy-regex`) needs no C toolchain and is the
+# supported fallback for environments that cannot provide one. It is slower
+# to start but otherwise equivalent:
+#
+#     cargo install mdless --no-default-features --features syntax-fancy
+default = ["syntax-onig"]
+syntax-onig = ["syntect/default-onig"]
+syntax-fancy = ["syntect/default-fancy"]
+
+[dependencies]
+pulldown-cmark = { version = "0.13", default-features = false }
+ratatui = "0.30"
+crossterm = "0.29"
+# Only the parsing engine, the bundled syntaxes and the bundled themes are
+# used; `html`, `plist-load`, `yaml-load` and `metadata` are not.
+syntect = { version = "5.3", default-features = false, features = [
+    "parsing",
+    "default-syntaxes",
+    "default-themes",
+] }
+unicode-width = "0.2"
+unicode-segmentation = "1.12"
+clap = { version = "4.5", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.5"
+clap_mangen = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+toml = "1.1"
+directories = "6.0"
+anyhow = "1.0"
+thiserror = "2.0"
+open = "5.4"
+url = "2.5"
+image = { version = "0.25", default-features = false, features = ["png"] }
+base64 = "0.23"
+
+[dev-dependencies]
+insta = "1.48"
+pretty_assertions = "1.4"
+tempfile = "3.27"
+assert_cmd = "2.2"
+criterion = "0.8"
+
+[[bench]]
+name = "startup"
+harness = false
+
+[[bench]]
+name = "layout"
+harness = false
+
+[[bench]]
+name = "large"
+harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"
+# `panic` is deliberately left at the default (`unwind`).
+#
+# `panic = "abort"` would shave a little size, but it breaks `cargo test
+# --release` and `cargo bench`, which CI runs: the test harness needs
+# unwinding, and cargo then has to build the library twice with conflicting
+# panic strategies. The terminal-restoring panic hook runs under both
+# strategies, so aborting buys no extra safety.
+
+[profile.dev.package.insta]
+opt-level = 3
+
+# --- Debian packaging -------------------------------------------------------
+#
+# NOTE: the man page and the shell completions are produced by the binary
+# itself (`mdless --generate-man`, `mdless --generate-completions <shell>`)
+# and must exist in `target/assets/` BEFORE `cargo deb --no-build` is run.
+# `scripts/release.sh` generates them into that directory; building the .deb
+# without that step fails with a missing-asset error, on purpose.
+[package.metadata.deb]
+maintainer = "Marcel Arentz <gdspd_you@open-one.de>"
+copyright = "2026, Marcel Arentz <gdspd_you@open-one.de>"
+license-file = ["LICENSE", "0"]
+section = "text"
+priority = "optional"
+depends = "$auto"
+extended-description = """
+mdless renders Markdown in the terminal the way a pager renders text: it keeps
+the document's structure instead of flattening it. Headings become navigable,
+sections fold, tables are laid out to the terminal width, code blocks are
+syntax highlighted, links are followable and Mermaid diagrams are drawn with a
+built-in renderer (or through mermaid-cli when it is available).
+"""
+assets = [
+    ["target/release/mdless", "usr/bin/", "755"],
+    ["target/assets/mdless.1", "usr/share/man/man1/mdless.1", "644"],
+    ["target/assets/mdless.bash", "usr/share/bash-completion/completions/mdless", "644"],
+    ["target/assets/_mdless", "usr/share/zsh/site-functions/_mdless", "644"],
+    ["target/assets/mdless.fish", "usr/share/fish/vendor_completions.d/mdless.fish", "644"],
+    ["README.md", "usr/share/doc/mdless/README.md", "644"],
+    ["CHANGELOG.md", "usr/share/doc/mdless/CHANGELOG.md", "644"],
+    ["LICENSE", "usr/share/doc/mdless/LICENSE", "644"],
+    ["docs/configuration.md", "usr/share/doc/mdless/configuration.md", "644"],
+    ["docs/keybindings.md", "usr/share/doc/mdless/keybindings.md", "644"],
+    ["docs/mermaid.md", "usr/share/doc/mdless/mermaid.md", "644"],
+    ["docs/terminal-compatibility-checklist.md", "usr/share/doc/mdless/terminal-compatibility-checklist.md", "644"],
+]
+
+[package.metadata.deb.variants.musl]
+depends = ""
+
+# --- RPM packaging ----------------------------------------------------------
+#
+# Same prerequisite as the .deb: generate `target/assets/*` first, then run
+# `cargo generate-rpm`.
+[package.metadata.generate-rpm]
+summary = "Interactive terminal Markdown reader"
+license = "MIT"
+assets = [
+    { source = "target/release/mdless", dest = "/usr/bin/mdless", mode = "755" },
+    { source = "target/assets/mdless.1", dest = "/usr/share/man/man1/mdless.1", mode = "644", doc = true },
+    { source = "target/assets/mdless.bash", dest = "/usr/share/bash-completion/completions/mdless", mode = "644" },
+    { source = "target/assets/_mdless", dest = "/usr/share/zsh/site-functions/_mdless", mode = "644" },
+    { source = "target/assets/mdless.fish", dest = "/usr/share/fish/vendor_completions.d/mdless.fish", mode = "644" },
+    { source = "README.md", dest = "/usr/share/doc/mdless/README.md", mode = "644", doc = true },
+    { source = "CHANGELOG.md", dest = "/usr/share/doc/mdless/CHANGELOG.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/mdless/LICENSE", mode = "644", doc = true },
+    { source = "docs/configuration.md", dest = "/usr/share/doc/mdless/configuration.md", mode = "644", doc = true },
+    { source = "docs/keybindings.md", dest = "/usr/share/doc/mdless/keybindings.md", mode = "644", doc = true },
+    { source = "docs/mermaid.md", dest = "/usr/share/doc/mdless/mermaid.md", mode = "644", doc = true },
+    { source = "docs/terminal-compatibility-checklist.md", dest = "/usr/share/doc/mdless/terminal-compatibility-checklist.md", mode = "644", doc = true },
+]

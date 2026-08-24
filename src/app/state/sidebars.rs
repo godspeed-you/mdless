@@ -1,0 +1,311 @@
+//! The panes beside the document, and the one toggle that behaves like them:
+//! the TOC sidebar, the key hints sidebar and the Mermaid source switch
+//!
+//! What groups these is a shared consequence rather than a shared subject.
+//! Opening or closing either sidebar changes the content width, so each takes
+//! the exact path a terminal resize takes — [`App::invalidate`] forces the
+//! rebuild and [`App::ensure_layout`] restores the semantic anchor, so the
+//! same content stays at the top of the screen. Toggling a diagram between
+//! its rendered form and its source changes that node's height, which does
+//! the same thing to the lines below it. Every one of them is a re-layout the
+//! reader must not feel.
+//!
+//! The hint context lives here too: which hint groups are shown depends on
+//! what is currently on screen — whether a link is visible, whether a diagram
+//! is near the cursor — so it is derived from the render tree at draw time and
+//! never cached.
+
+use super::{App, Mode};
+use crate::app::hints::HintContext;
+use crate::document::{NodeId, NodeKind};
+use crate::render::terminal::HintGroup;
+
+impl App {
+    // -- TOC --------------------------------------------------------------
+
+    pub(super) fn toggle_toc(&mut self) {
+        if self.toc.is_empty() {
+            self.set_message("document has no headings");
+            return;
+        }
+        if self.toc.open && self.mode == Mode::Toc {
+            self.toc.open = false;
+            self.mode = Mode::Normal;
+        } else {
+            self.toc.open = true;
+            self.mode = Mode::Toc;
+            if let Some(current) = self.current_section() {
+                if let Some(index) = self.toc.index_of(current) {
+                    let height = self.content_height();
+                    self.toc.select(index, height);
+                }
+            }
+        }
+        self.invalidate();
+    }
+
+    // -- key hints --------------------------------------------------------
+
+    /// Toggle the right-hand key hints sidebar (`K`).
+    ///
+    /// Opening or closing it changes the document width, so it takes exactly
+    /// the same path a resize takes: [`App::invalidate`] forces the rebuild
+    /// and [`App::ensure_layout`] restores the semantic anchor afterwards, so
+    /// the same content stays at the top of the screen.
+    pub(super) fn toggle_key_hints(&mut self) {
+        self.hints.open = !self.hints.open;
+        self.invalidate();
+        if self.hints.open && self.sidebar_widths().1 == 0 {
+            self.set_message("terminal too narrow for the key hints sidebar");
+        }
+    }
+
+    /// The context the hints sidebar selects its rows from.
+    pub(crate) fn hint_context(&self) -> HintContext {
+        HintContext {
+            mode: self.mode,
+            can_scroll_horizontally: self.tree.max_width() > self.content_width(),
+            link_in_view: self.link_in_view(),
+            cursor_on_heading: self.cursor_on_heading(),
+            near_diagram: self.near_diagram(),
+            search_active: self.search.has_matches(),
+        }
+    }
+
+    /// The hint groups for the current context.
+    pub(crate) fn hint_groups(&self) -> Vec<HintGroup> {
+        crate::app::hints::groups(&self.hint_context(), &self.keymap)
+    }
+
+    /// Whether any line inside the viewport carries a link.
+    fn link_in_view(&self) -> bool {
+        self.tree
+            .visible_slice(self.top_line, self.content_height())
+            .iter()
+            .any(|line| line.spans.iter().any(|s| s.link.is_some()))
+    }
+
+    /// Whether a Mermaid diagram is at or near the cursor: the same
+    /// "nearest diagram" `s` would act on, and only when it is close enough
+    /// to be on screen.
+    fn near_diagram(&self) -> bool {
+        let Some(node) = self.nearest_diagram() else {
+            return false;
+        };
+        let Some(line) = self.tree.first_line_of(node) else {
+            return false;
+        };
+        let top = self.top_line;
+        let bottom = top.saturating_add(self.content_height());
+        // At or near: inside the viewport, or within one screen of it, which
+        // is exactly the reach `nearest_diagram` gives `s`.
+        line < bottom && line + self.content_height() >= top
+    }
+
+    /// Jump to the selected TOC entry.
+    pub(crate) fn toc_jump(&mut self) {
+        let Some(section) = self.toc.selected_section() else {
+            return;
+        };
+        let Some(heading) = self.doc.sections.get(section).map(|s| s.heading) else {
+            return;
+        };
+        self.reveal_node(heading);
+        self.ensure_layout();
+        if let Some(line) = self.tree.first_line_of(heading) {
+            self.scroll_with_context(line);
+        }
+        self.mode = Mode::Normal;
+    }
+
+    // -- mermaid ----------------------------------------------------------
+
+    /// Toggle between the rendered diagram and its source for the diagram at
+    /// or nearest to the cursor (`s`).
+    pub(super) fn toggle_mermaid_source(&mut self) {
+        let Some(node) = self.nearest_diagram() else {
+            self.set_message("no diagram in view");
+            return;
+        };
+        let now_source = self.diagrams.toggle_source(node);
+        self.diagram_generation += 1;
+        self.anchor = (node, 0);
+        self.cursor = node;
+        self.invalidate();
+        self.ensure_layout();
+        self.set_message(if now_source {
+            "showing Mermaid source"
+        } else {
+            "showing rendered diagram"
+        });
+    }
+
+    /// The Mermaid node closest to the cursor line.
+    fn nearest_diagram(&self) -> Option<NodeId> {
+        let cursor = self.cursor_line();
+        let mut best: Option<(usize, NodeId)> = None;
+        for (idx, line) in self.tree.lines.iter().enumerate() {
+            let is_mermaid = self
+                .doc
+                .node(line.node)
+                .map(|n| matches!(n.kind, NodeKind::Mermaid(_)))
+                .unwrap_or(false);
+            if !is_mermaid {
+                continue;
+            }
+            let distance = idx.abs_diff(cursor);
+            if best.map(|(d, _)| distance < d).unwrap_or(true) {
+                best = Some((distance, line.node));
+            }
+        }
+        best.map(|(_, node)| node)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::test_support::*;
+    use crate::config::actions::Action;
+
+    #[test]
+    fn toc_selection_maps_to_the_right_section() {
+        let mut a = app();
+        a.apply(Action::ToggleToc);
+        assert_eq!(a.mode(), Mode::Toc);
+        assert!(a.toc.open);
+        a.apply(Action::ScrollDown);
+        a.apply(Action::ScrollDown);
+        let section = a.toc.selected_section().expect("selection");
+        let heading = a.doc.heading_of(section).map(|h| h.text.clone());
+        a.apply(Action::Activate);
+        assert_eq!(a.mode(), Mode::Normal);
+        let at_top = a.cursor_node().and_then(|n| a.doc.node(n));
+        assert!(
+            matches!(at_top.map(|n| &n.kind), Some(NodeKind::Heading(h)) if Some(&h.text) == heading.as_ref()),
+            "jumped to {heading:?}"
+        );
+    }
+
+    #[test]
+    fn toc_narrows_the_content_width() {
+        let mut a = app();
+        let full = a.content_width();
+        a.apply(Action::ToggleToc);
+        assert!(a.content_width() < full);
+        a.apply(Action::Cancel);
+        assert!(!a.toc.open);
+        assert_eq!(a.content_width(), full);
+    }
+
+    #[test]
+    fn key_hints_narrow_the_content_and_preserve_the_anchor() {
+        // The single most important correctness property of the sidebar: the
+        // width change must take the resize path, so the semantically
+        // anchored node stays at the top of the screen.
+        let mut a = app_with(DOC, (120, 24));
+        let full = a.content_width();
+        a.scroll_to(12);
+        let before = a.anchor();
+        let relayouts = a.relayout_count();
+
+        a.apply(Action::ToggleKeyHints);
+        assert!(a.hints.open);
+        assert!(a.content_width() < full, "the document area shrank");
+        assert_eq!(
+            a.content_width(),
+            full - usize::from(a.sidebar_widths().1),
+            "it shrank by exactly the sidebar width"
+        );
+        assert!(
+            a.relayout_count() > relayouts,
+            "it re-laid the document out"
+        );
+        assert_eq!(a.anchor().0, before.0, "the top node survived opening");
+
+        a.apply(Action::ToggleKeyHints);
+        assert!(!a.hints.open);
+        assert_eq!(a.content_width(), full);
+        assert_eq!(a.anchor().0, before.0, "and survived closing again");
+    }
+
+    #[test]
+    fn a_narrow_terminal_drops_the_hints_sidebar_and_keeps_the_toc() {
+        let mut a = app_with(DOC, (120, 24));
+        a.apply(Action::ToggleKeyHints);
+        let (_, hints) = a.sidebar_widths();
+        assert!(hints > 0, "wide enough for the hints alone");
+
+        // Both open: at 80 columns there is no room for both, and the hints
+        // give way first.
+        a.resize(80, 24);
+        a.apply(Action::ToggleToc);
+        let (toc, hints) = a.sidebar_widths();
+        assert!(toc > 0, "the TOC is navigation and stays");
+        assert_eq!(hints, 0, "the hints are discoverability and go first");
+
+        // Too narrow even on their own.
+        a.apply(Action::ToggleToc);
+        a.resize(48, 24);
+        assert_eq!(a.sidebar_widths().1, 0);
+        assert!(a.content_width() >= usize::from(crate::app::hints::MIN_DOCUMENT_WIDTH));
+    }
+
+    #[test]
+    fn hint_context_follows_the_document() {
+        let mut a = app_with(DOC, (120, 24));
+        let ctx = a.hint_context();
+        assert_eq!(ctx.mode, Mode::Normal);
+        assert!(!ctx.can_scroll_horizontally, "wrapped prose fits");
+        assert!(ctx.link_in_view, "the lead paragraph carries a link");
+        assert!(!ctx.near_diagram);
+        assert!(!ctx.search_active);
+
+        a.apply(Action::NextHeading);
+        assert!(a.hint_context().cursor_on_heading);
+
+        // Horizontal scrolling only when the tree really is wider than the
+        // viewport: an unwrapped code block in a narrow terminal.
+        let wide = app_with("```text\n0123456789 0123456789 0123456789\n```\n", (20, 10));
+        assert!(wide.hint_context().can_scroll_horizontally);
+
+        // A search with matches turns the n/N rows on.
+        let mut searched = app_with(DOC, (120, 24));
+        searched.search.query = "needle".to_string();
+        searched.search.refresh(&searched.index);
+        assert!(searched.hint_context().search_active);
+    }
+
+    #[test]
+    fn hint_context_sees_a_diagram_only_when_it_is_near() {
+        let fence = "```mermaid\ngraph LR\nA-->B\n```\n";
+        let a = app_with(fence, (80, 24));
+        assert!(a.hint_context().near_diagram);
+
+        let filler = "\nfiller paragraph\n".repeat(80);
+        let mut far = app_with(&format!("{fence}{filler}"), (80, 24));
+        far.scroll_to(usize::MAX);
+        assert!(
+            !far.hint_context().near_diagram,
+            "a diagram a hundred lines above is not `at or near` the cursor"
+        );
+    }
+
+    #[test]
+    fn mermaid_source_toggle_relayouts() {
+        let mut a = app_with("# D\n\n```mermaid\ngraph LR\nA --> B\n```\n", (80, 20));
+        let node = a
+            .doc
+            .nodes
+            .iter()
+            .find(|n| matches!(n.kind, NodeKind::Mermaid(_)))
+            .map(|n| n.id)
+            .expect("a mermaid node");
+        assert!(!a.diagrams.shows_source(node));
+        a.apply(Action::ToggleMermaidSource);
+        assert!(a.diagrams.shows_source(node));
+        assert!(a.tree().to_plain_text().contains("graph LR"));
+        a.apply(Action::ToggleMermaidSource);
+        assert!(!a.diagrams.shows_source(node));
+    }
+}

@@ -1,0 +1,176 @@
+//! Configuration: schema, loader (XDG + `--config` + env), and keybinding
+//! resolution.
+
+pub mod actions;
+pub mod keys;
+pub mod loader;
+pub mod schema;
+
+pub use actions::Action;
+pub use keys::{Key, KeyMap, KeyMatch};
+pub use loader::{load, LoadedConfig};
+pub use schema::{
+    CodeConfig, ColorMode, Config, ConfigError, ImageMode, KeyBinding, LinksConfig, MermaidBackend,
+    MermaidConfig, Osc8Mode, TableConfig, TableMode, Theme,
+};
+
+use crate::cli::CliArgs;
+
+impl Config {
+    /// Apply `MDLESS_*` environment overrides and CLI overrides on top of
+    /// this configuration. Precedence: defaults < file < env < CLI.
+    pub fn merged(&self, cli: &CliArgs) -> Result<Config, ConfigError> {
+        self.merged_with_env(cli, |k| std::env::var(k).ok())
+    }
+
+    /// [`Config::merged`] with an injectable environment (for tests).
+    pub fn merged_with_env(
+        &self,
+        cli: &CliArgs,
+        env: impl Fn(&str) -> Option<String>,
+    ) -> Result<Config, ConfigError> {
+        let mut merged = self.clone();
+
+        // Environment overrides.
+        if let Some(theme) = env("MDLESS_THEME") {
+            merged.theme = Theme::parse(&theme);
+        }
+        if let Some(backend) = env("MDLESS_MERMAID") {
+            merged.mermaid.backend =
+                MermaidBackend::parse(&backend).ok_or_else(|| ConfigError::Env {
+                    var: "MDLESS_MERMAID".to_string(),
+                    value: backend.clone(),
+                    expected: MermaidBackend::expected().trim().to_string(),
+                })?;
+        }
+
+        // CLI overrides.
+        if let Some(theme) = &cli.theme {
+            merged.theme = Theme::parse(theme);
+        }
+        if let Some(color) = cli.color {
+            merged.color = color;
+        }
+        if let Some(mouse) = cli.mouse_override() {
+            merged.mouse = mouse;
+        }
+        if let Some(toc) = cli.toc_override() {
+            merged.toc = toc;
+        }
+        if let Some(key_hints) = cli.key_hints_override() {
+            merged.key_hints = key_hints;
+        }
+        if let Some(ln) = cli.line_numbers_override() {
+            merged.line_numbers = ln;
+        }
+        if let Some(wrap) = cli.wrap_override() {
+            merged.wrap = wrap;
+        }
+        if let Some(backend) = cli.mermaid {
+            merged.mermaid.backend = backend;
+        }
+        if let Some(images) = cli.mermaid_images {
+            merged.mermaid.images = images;
+        }
+        Ok(merged)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::CliArgs;
+    use clap::Parser;
+
+    fn cli(args: &[&str]) -> CliArgs {
+        CliArgs::try_parse_from(std::iter::once("mdless").chain(args.iter().copied())).unwrap()
+    }
+
+    #[test]
+    fn cli_overrides_config() {
+        let mut base = Config {
+            theme: Theme::Dark,
+            mouse: true,
+            ..Config::default()
+        };
+        base.mermaid.backend = MermaidBackend::Terminal;
+        let merged = base
+            .merged_with_env(
+                &cli(&["--theme", "light", "--no-mouse", "--mermaid", "source"]),
+                |_| None,
+            )
+            .unwrap();
+        assert_eq!(merged.theme, Theme::Light);
+        assert!(!merged.mouse);
+        assert_eq!(merged.mermaid.backend, MermaidBackend::Source);
+        // Untouched values survive.
+        assert_eq!(merged.table.max_column_width, 60);
+    }
+
+    #[test]
+    fn env_overrides_config_but_cli_wins() {
+        let base = Config::default();
+        let env = |k: &str| match k {
+            "MDLESS_THEME" => Some("dark".to_string()),
+            "MDLESS_MERMAID" => Some("mmdc".to_string()),
+            _ => None,
+        };
+        let merged = base.merged_with_env(&cli(&[]), env).unwrap();
+        assert_eq!(merged.theme, Theme::Dark);
+        assert_eq!(merged.mermaid.backend, MermaidBackend::Mmdc);
+
+        let merged = base
+            .merged_with_env(&cli(&["--theme", "light", "--mermaid", "source"]), env)
+            .unwrap();
+        assert_eq!(merged.theme, Theme::Light, "CLI beats env");
+        assert_eq!(merged.mermaid.backend, MermaidBackend::Source);
+    }
+
+    #[test]
+    fn invalid_env_value_is_reported() {
+        let base = Config::default();
+        let err = base
+            .merged_with_env(&cli(&[]), |k| {
+                (k == "MDLESS_MERMAID").then(|| "webgl".to_string())
+            })
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("MDLESS_MERMAID"), "{msg}");
+        assert!(msg.contains("webgl"), "{msg}");
+        assert!(msg.contains("terminal"), "{msg}");
+    }
+
+    #[test]
+    fn key_hints_follows_the_same_precedence_as_toc() {
+        let base = Config {
+            key_hints: true,
+            ..Config::default()
+        };
+        assert!(!Config::default().key_hints, "off by default");
+
+        let merged = base.merged_with_env(&cli(&[]), |_| None).unwrap();
+        assert!(merged.key_hints, "the file value survives");
+
+        let merged = base
+            .merged_with_env(&cli(&["--no-key-hints"]), |_| None)
+            .unwrap();
+        assert!(!merged.key_hints, "the flag beats the file");
+
+        let merged = Config::default()
+            .merged_with_env(&cli(&["--key-hints"]), |_| None)
+            .unwrap();
+        assert!(merged.key_hints);
+
+        let merged = Config::default()
+            .merged_with_env(&cli(&["--key-hints", "--no-key-hints"]), |_| None)
+            .unwrap();
+        assert!(!merged.key_hints, "the later flag wins");
+    }
+
+    #[test]
+    fn no_overrides_is_identity() {
+        let base = Config::default();
+        let merged = base.merged_with_env(&cli(&[]), |_| None).unwrap();
+        assert_eq!(merged, base);
+    }
+}
