@@ -76,7 +76,7 @@ jobs:
         run: |
           mkdir -p dist
           ./target/release/mdless --generate-man > dist/mdless.1
-          grep -q '^\.TH mdless' dist/mdless.1
+          grep -qi '^\.TH mdless' dist/mdless.1
           ./target/release/mdless --generate-completions bash > dist/mdless.bash
           ./target/release/mdless --generate-completions zsh  > dist/_mdless
           ./target/release/mdless --generate-completions fish > dist/mdless.fish
