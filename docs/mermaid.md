@@ -1,13 +1,13 @@
-# mdless — Mermaid Behavior
+# diple — Mermaid Behavior
 
-mdless renders fenced ```` ```mermaid ```` blocks. Because a complete Mermaid
-implementation is explicitly out of scope, mdless supports a
+diple renders fenced ```` ```mermaid ```` blocks. Because a complete Mermaid
+implementation is explicitly out of scope, diple supports a
 defined subset natively and delegates everything else — with a deterministic
 fallback chain that can never break the surrounding document.
 
 ## Backend selection
 
-With `mermaid.backend = "auto"` (the default), mdless follows this matrix for
+With `mermaid.backend = "auto"` (the default), diple follows this matrix for
 each diagram:
 
 | Condition | Result |
@@ -25,9 +25,9 @@ Overrides:
 - `--mermaid source` — never render, always show the source
 - `--mermaid-images never|always` — force the image column of the matrix off or on
 
-Check what your terminal offers with `mdless --print-capabilities`.
+Check what your terminal offers with `diple --print-capabilities`.
 
-**No Mermaid failure can crash mdless or prevent the rest of the document from
+**No Mermaid failure can crash diple or prevent the rest of the document from
 being read.** A failed diagram renders as
 `[Mermaid diagram could not be rendered]` plus the source, and the reason
 appears once in the status line.
@@ -121,7 +121,7 @@ output. Edges are routed orthogonally around box areas, and edges spanning more
 than one layer get their own detour lane.
 
 Diagrams never exceed the terminal width: labels are progressively shortened,
-and if the diagram still does not fit, mdless falls back to the source rather
+and if the diagram still does not fit, diple falls back to the source rather
 than emitting a corrupted picture.
 
 Where the terminal cannot draw Unicode box characters (a non-UTF-8 locale), an
@@ -129,7 +129,7 @@ ASCII fallback (`+--+`, `|`, `-`, `>`, `v`) is used automatically.
 
 ## Using the Mermaid CLI
 
-Install `mmdc` (`npm install -g @mermaid-js/mermaid-cli`), or point mdless at a
+Install `mmdc` (`npm install -g @mermaid-js/mermaid-cli`), or point diple at a
 specific binary:
 
 ```toml
@@ -137,8 +137,8 @@ specific binary:
 mmdc_command = "/usr/local/bin/mmdc"
 ```
 
-mdless invokes it with a hard 10-second timeout and caches the resulting PNG
-under `~/.cache/mdless/mermaid/`, keyed by a hash of the diagram source and the
+diple invokes it with a hard 10-second timeout and caches the resulting PNG
+under `~/.cache/diple/mermaid/`, keyed by a hash of the diagram source and the
 requested width — so scrolling and resizing never re-invoke it.
 
 Images are displayed through the Kitty graphics protocol, iTerm2 inline images
@@ -153,7 +153,7 @@ set -g allow-passthrough on
 
 | Symptom | Cause and fix |
 |---|---|
-| Diagram shows as source in a capable terminal | run `mdless --print-capabilities`; check the `images` row and its stated reason |
+| Diagram shows as source in a capable terminal | run `diple --print-capabilities`; check the `images` row and its stated reason |
 | Nothing renders as an image inside tmux | enable `allow-passthrough` (above) |
 | `[Mermaid diagram could not be rendered]` | the status line names the reason; press `s` to read the source |
 | The diagram is a flowchart but still not native | check for unsupported syntax such as ids containing `-` |

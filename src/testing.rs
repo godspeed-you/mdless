@@ -2,7 +2,7 @@
 //!
 //! # Why this module exists
 //!
-//! Almost every `#[cfg(test)]` block in `mdless` needs the same three or four
+//! Almost every `#[cfg(test)]` block in `diple` needs the same three or four
 //! values: a parsed [`Document`], a [`Theme`], a [`LayoutOptions`] and — in
 //! `app` — a fully wired [`App`]. Spelled out by hand at every call site,
 //! those literals are what makes the suite rot: adding a field to [`AppEnv`]
@@ -16,7 +16,7 @@
 //! feature would be enableable by any downstream `--features` flag and would
 //! ship these helpers in a release build; `cfg(test)` cannot be turned on from
 //! outside. Verified with
-//! `cargo build --release && nm -C target/release/mdless | grep -i testing`,
+//! `cargo build --release && nm -C target/release/diple | grep -i testing`,
 //! which finds nothing.
 //!
 //! # Boundary

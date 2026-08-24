@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# mdless release builder.
+# diple release builder.
 #
 # Produces every release artifact from a Git tag, so that a release is
 # reproducible from that tag alone:
@@ -139,7 +139,7 @@ TAG_VERSION="${TAG#v}"
   || die "version mismatch: Cargo.toml says $CARGO_VERSION, tag $TAG says $TAG_VERSION"
 
 VERSION="$CARGO_VERSION"
-log "releasing mdless $VERSION from tag $TAG"
+log "releasing diple $VERSION from tag $TAG"
 
 # ------------------------------------------------------------ 2. check suite
 
@@ -262,7 +262,7 @@ build_target() {
     return 0
   fi
 
-  local binary="target/$target/release/mdless"
+  local binary="target/$target/release/diple"
   if [ ! -f "$binary" ]; then
     warn "$target: no binary produced at $binary"
     SKIPPED_TARGETS+=("$target (no binary)")
@@ -285,14 +285,14 @@ done
 GENERATOR=""
 for t in "${BUILT_TARGETS[@]}"; do
   if [ "$t" = "$HOST_TARGET" ]; then
-    GENERATOR="target/$t/release/mdless"
+    GENERATOR="target/$t/release/diple"
     break
   fi
 done
 if [ -z "$GENERATOR" ]; then
   for t in "${BUILT_TARGETS[@]}"; do
-    if "target/$t/release/mdless" --version >/dev/null 2>&1; then
-      GENERATOR="target/$t/release/mdless"
+    if "target/$t/release/diple" --version >/dev/null 2>&1; then
+      GENERATOR="target/$t/release/diple"
       break
     fi
   done
@@ -300,23 +300,23 @@ fi
 [ -n "$GENERATOR" ] || die "no natively runnable binary to generate the man page and completions"
 
 log "generating the man page and shell completions with $GENERATOR"
-"$GENERATOR" --generate-man > "$STAGE/mdless.1"
-[ -s "$STAGE/mdless.1" ] || die "the generated man page is empty"
+"$GENERATOR" --generate-man > "$STAGE/diple.1"
+[ -s "$STAGE/diple.1" ] || die "the generated man page is empty"
 # Fail loudly if the page does not even name the program: that would mean the
 # generator broke, and packages must never ship a broken man page.
-grep -q '^\.TH mdless' "$STAGE/mdless.1" || die "the generated man page has no .TH header"
+grep -q '^\.TH diple' "$STAGE/diple.1" || die "the generated man page has no .TH header"
 
-"$GENERATOR" --generate-completions bash > "$STAGE/mdless.bash"
-"$GENERATOR" --generate-completions zsh  > "$STAGE/_mdless"
-"$GENERATOR" --generate-completions fish > "$STAGE/mdless.fish"
-for f in "$STAGE/mdless.bash" "$STAGE/_mdless" "$STAGE/mdless.fish"; do
+"$GENERATOR" --generate-completions bash > "$STAGE/diple.bash"
+"$GENERATOR" --generate-completions zsh  > "$STAGE/_diple"
+"$GENERATOR" --generate-completions fish > "$STAGE/diple.fish"
+for f in "$STAGE/diple.bash" "$STAGE/_diple" "$STAGE/diple.fish"; do
   [ -s "$f" ] || die "generated completion $f is empty"
 done
 
 # Packaging metadata (Cargo.toml [package.metadata.deb] / [.generate-rpm])
 # installs these from a fixed location; keep them where the metadata expects.
 mkdir -p target/assets
-cp "$STAGE/mdless.1" "$STAGE/mdless.bash" "$STAGE/_mdless" "$STAGE/mdless.fish" target/assets/
+cp "$STAGE/diple.1" "$STAGE/diple.bash" "$STAGE/_diple" "$STAGE/diple.fish" target/assets/
 
 # ------------------------------------------------------------- 5. packages
 
@@ -372,17 +372,17 @@ fi
 
 log "assembling tarballs"
 for target in "${BUILT_TARGETS[@]}"; do
-  name="mdless-$VERSION-$target"
+  name="diple-$VERSION-$target"
   root="$STAGE/$name"
   rm -rf "$root"
   mkdir -p "$root/completions"
 
-  cp "target/$target/release/mdless" "$root/mdless"
-  chmod 0755 "$root/mdless"
-  cp "$STAGE/mdless.1" "$root/mdless.1"
-  cp "$STAGE/mdless.bash" "$root/completions/mdless.bash"
-  cp "$STAGE/_mdless"     "$root/completions/_mdless"
-  cp "$STAGE/mdless.fish" "$root/completions/mdless.fish"
+  cp "target/$target/release/diple" "$root/diple"
+  chmod 0755 "$root/diple"
+  cp "$STAGE/diple.1" "$root/diple.1"
+  cp "$STAGE/diple.bash" "$root/completions/diple.bash"
+  cp "$STAGE/_diple"     "$root/completions/_diple"
+  cp "$STAGE/diple.fish" "$root/completions/diple.fish"
   cp README.md LICENSE CHANGELOG.md "$root/"
 
   # Deterministic tarball: fixed owner, sorted entries, mtime from the tag.
@@ -396,12 +396,12 @@ for target in "${BUILT_TARGETS[@]}"; do
   rm -f "$STAGE/$name.tar"
 
   # The bare binary is convenient for `curl | install`.
-  cp "target/$target/release/mdless" "$OUTPUT_DIR/mdless-$VERSION-$target"
+  cp "target/$target/release/diple" "$OUTPUT_DIR/diple-$VERSION-$target"
 done
 
 # Ship the generated man page and completions as loose artifacts too, so
 # distro packagers do not have to unpack a tarball for them.
-cp "$STAGE/mdless.1" "$STAGE/mdless.bash" "$STAGE/_mdless" "$STAGE/mdless.fish" "$OUTPUT_DIR/"
+cp "$STAGE/diple.1" "$STAGE/diple.bash" "$STAGE/_diple" "$STAGE/diple.fish" "$OUTPUT_DIR/"
 
 # --------------------------------------------------------- 7. release notes
 
@@ -425,10 +425,10 @@ if [ -f CHANGELOG.md ]; then
 fi
 if [ ! -s "$NOTES" ]; then
   warn "CHANGELOG.md has no section for $VERSION; writing a placeholder"
-  printf 'mdless %s\n\nNo CHANGELOG.md section for this version.\n' "$VERSION" > "$NOTES"
+  printf 'diple %s\n\nNo CHANGELOG.md section for this version.\n' "$VERSION" > "$NOTES"
 fi
 {
-  printf '# mdless %s\n\n' "$VERSION"
+  printf '# diple %s\n\n' "$VERSION"
   cat "$NOTES"
 } > "$NOTES.tmp"
 mv "$NOTES.tmp" "$NOTES"

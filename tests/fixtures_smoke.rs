@@ -1,7 +1,7 @@
 //! Smoke test: every fixture parses without panicking and yields a coherent
 //! document (unique pre-order ids, resolvable lookups, valid spans).
 
-use mdless::document::{self, SearchIndex};
+use diple::document::{self, SearchIndex};
 
 #[test]
 fn all_fixtures_parse_coherently() {

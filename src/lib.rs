@@ -1,4 +1,4 @@
-//! `mdless` — an interactive terminal Markdown reader.
+//! `diple` — an interactive terminal Markdown reader.
 //!
 //! The crate is organised as follows:
 //!

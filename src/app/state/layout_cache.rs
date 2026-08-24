@@ -117,7 +117,7 @@ impl App {
         self.prepare_frame();
         if self.debug {
             eprintln!(
-                "mdless: relayout {} lines at width {} in {:?}",
+                "diple: relayout {} lines at width {} in {:?}",
                 self.tree.len(),
                 self.content_width(),
                 started.elapsed()
@@ -167,7 +167,7 @@ impl App {
     /// Highlight deferred code just outside the viewport.
     ///
     /// Called only when the event loop is idle, so it never delays a frame,
-    /// and bounded to one screen in each direction so an idle mdless settles
+    /// and bounded to one screen in each direction so an idle diple settles
     /// back to doing nothing. It is what keeps the *first* code block of a new
     /// language from costing a frame when it is scrolled into view: the reader
     /// is normally reading — that is, idle — before they scroll.
@@ -389,7 +389,7 @@ impl App {
         self.tree = tree;
         if spliced && self.debug {
             eprintln!(
-                "mdless: spliced nodes {first}..{last} of {}, {} lines total, in {:?}",
+                "diple: spliced nodes {first}..{last} of {}, {} lines total, in {:?}",
                 self.doc.nodes.len(),
                 self.tree.len(),
                 started.elapsed()

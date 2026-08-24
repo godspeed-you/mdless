@@ -312,14 +312,14 @@ pub(crate) const SIXEL_PALETTE_SIZE: usize = 216;
 ///
 /// # Palette choice
 ///
-/// mdless uses the **fixed 6×6×6 RGB cube** (216 colours, well inside the
+/// diple uses the **fixed 6×6×6 RGB cube** (216 colours, well inside the
 /// 256-register limit every Sixel terminal provides) rather than an adaptive
 /// median-cut palette. Reasons:
 ///
 /// * it is O(pixels) with no extra pass and no allocation per image, which
 ///   keeps diagram rendering inside the interaction budget;
 /// * it is deterministic, so the encoder output is golden-testable;
-/// * mdless only renders Mermaid diagrams — flat-coloured line art with few
+/// * diple only renders Mermaid diagrams — flat-coloured line art with few
 ///   distinct colours — where a uniform cube is visually indistinguishable
 ///   from an adaptive palette.
 ///

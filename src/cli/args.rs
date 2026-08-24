@@ -1,4 +1,4 @@
-//! `mdless [OPTIONS] [FILE]` — argument definitions.
+//! `diple [OPTIONS] [FILE]` — argument definitions.
 
 use std::path::PathBuf;
 
@@ -10,12 +10,12 @@ use crate::config::schema::{ColorMode, ImageMode, MermaidBackend};
 /// An interactive terminal Markdown reader.
 #[derive(Debug, Clone, Parser, Default, PartialEq)]
 #[command(
-    name = "mdless",
+    name = "diple",
     version,
     about = "An interactive terminal Markdown reader",
-    long_about = "mdless is `less` for Markdown: an interactive terminal document viewer \
+    long_about = "diple is `less` for Markdown: an interactive terminal document viewer \
                   with semantic navigation, folding, rich tables and Mermaid diagrams. \
-                  If FILE is omitted, mdless reads from stdin."
+                  If FILE is omitted, diple reads from stdin."
 )]
 pub struct CliArgs {
     /// Markdown file to read (stdin when omitted).
@@ -158,7 +158,7 @@ mod tests {
     use clap::CommandFactory;
 
     fn parse(args: &[&str]) -> CliArgs {
-        CliArgs::try_parse_from(std::iter::once("mdless").chain(args.iter().copied())).unwrap()
+        CliArgs::try_parse_from(std::iter::once("diple").chain(args.iter().copied())).unwrap()
     }
 
     #[test]
@@ -233,15 +233,15 @@ mod tests {
 
     #[test]
     fn invalid_enum_value_rejected() {
-        let r = CliArgs::try_parse_from(["mdless", "--mermaid", "opengl"]);
+        let r = CliArgs::try_parse_from(["diple", "--mermaid", "opengl"]);
         assert!(r.is_err());
-        let r = CliArgs::try_parse_from(["mdless", "--color", "sometimes"]);
+        let r = CliArgs::try_parse_from(["diple", "--color", "sometimes"]);
         assert!(r.is_err());
     }
 
     #[test]
     fn config_conflicts_with_no_config() {
-        let r = CliArgs::try_parse_from(["mdless", "--config", "x.toml", "--no-config"]);
+        let r = CliArgs::try_parse_from(["diple", "--config", "x.toml", "--no-config"]);
         assert!(r.is_err());
     }
 

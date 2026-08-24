@@ -26,9 +26,9 @@
 //! # Example
 //!
 //! ```
-//! use mdless::config::schema::MermaidConfig;
-//! use mdless::document::ast::MermaidBlock;
-//! use mdless::mermaid::{select_backend, MermaidOutput, RenderEnvironment};
+//! use diple::config::schema::MermaidConfig;
+//! use diple::document::ast::MermaidBlock;
+//! use diple::mermaid::{select_backend, MermaidOutput, RenderEnvironment};
 //!
 //! let cfg = MermaidConfig::default();
 //! let env = RenderEnvironment::default();

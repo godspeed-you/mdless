@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to mdless are documented here. The format follows
+All notable changes to diple are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/).
 
@@ -11,7 +11,14 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **The project is now called `diple`.** The binary, the crate and the
+  configuration all follow: run `diple`, configure it in
+  `~/.config/diple/config.toml` and override it with `DIPLE_*` environment
+  variables. There is no compatibility shim — `mdless`, `~/.config/mdless/`
+  and `MDLESS_*` are gone. Move your configuration file and rename your
+  environment variables when upgrading from 0.2.0.
 
 ## [0.2.0] - 2026-08-23
 
@@ -76,5 +83,5 @@ therefore still open:
 - Packaging: `.deb`, `.rpm`, an Arch `PKGBUILD`, standalone Linux tarballs, a
   man page and bash/zsh/fish completions.
 
-[Unreleased]: https://github.com/godspeed-you/mdless/compare/v0.2.0...main
-[0.2.0]: https://github.com/godspeed-you/mdless/releases/tag/v0.2.0
+[Unreleased]: https://github.com/godspeed-you/diple/compare/v0.2.0...main
+[0.2.0]: https://github.com/godspeed-you/diple/releases/tag/v0.2.0

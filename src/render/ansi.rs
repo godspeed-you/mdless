@@ -2,7 +2,7 @@
 //! (`--color always`).
 //!
 //! The interactive renderer hands [`Style`] to ratatui, which emits the escape
-//! sequences itself. `mdless doc.md --color always | less -R` has no ratatui,
+//! sequences itself. `diple doc.md --color always | less -R` has no ratatui,
 //! so the styling has to be written out here. Both paths share
 //! [`Style::downgrade`], so `truecolor`, `ansi256`, `ansi16` and `none` behave
 //! exactly as they do on screen.

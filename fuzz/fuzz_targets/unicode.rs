@@ -4,5 +4,5 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    mdless_fuzz::unicode_helpers(data);
+    diple_fuzz::unicode_helpers(data);
 });

@@ -22,12 +22,12 @@ use std::time::{Duration, Instant};
 type Target = (&'static str, fn(&[u8]));
 
 const TARGETS: [Target; 6] = [
-    ("parse_markdown", mdless_fuzz::parse_markdown),
-    ("layout", mdless_fuzz::layout),
-    ("table", mdless_fuzz::table),
-    ("unicode", mdless_fuzz::unicode_helpers),
-    ("config", mdless_fuzz::config),
-    ("mermaid", mdless_fuzz::mermaid),
+    ("parse_markdown", diple_fuzz::parse_markdown),
+    ("layout", diple_fuzz::layout),
+    ("table", diple_fuzz::table),
+    ("unicode", diple_fuzz::unicode_helpers),
+    ("config", diple_fuzz::config),
+    ("mermaid", diple_fuzz::mermaid),
 ];
 
 /// xorshift64* — a deterministic PRNG so a failing run is reproducible from

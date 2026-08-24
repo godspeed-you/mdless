@@ -1,4 +1,4 @@
-//! Shared fixture helpers for the mdless benchmarks.
+//! Shared fixture helpers for the diple benchmarks.
 //!
 //! Everything here is deterministic: the synthetic documents are generated
 //! from the checked-in fixtures with a fixed recipe, so two runs on the same

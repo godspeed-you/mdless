@@ -1,6 +1,6 @@
 //! Integration tests for the binary.
 //!
-//! Every test runs the real `mdless` executable with a non-tty stdout, which
+//! Every test runs the real `diple` executable with a non-tty stdout, which
 //! selects the plain-text output path.
 
 use std::io::Write;
@@ -8,14 +8,14 @@ use std::process::{Command, Stdio};
 
 mod common;
 
-use common::{command, fixture, mdless};
+use common::{command, diple, fixture};
 
 #[test]
 fn reads_a_file() {
-    let out = mdless()
+    let out = diple()
         .arg(fixture("readme.md"))
         .output()
-        .expect("run mdless");
+        .expect("run diple");
     assert!(out.status.success(), "status: {:?}", out.status);
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(!text.is_empty(), "the document was rendered");
@@ -23,11 +23,11 @@ fn reads_a_file() {
 
 #[test]
 fn reads_stdin() {
-    let mut child = mdless()
+    let mut child = diple()
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .expect("spawn mdless");
+        .expect("spawn diple");
     child
         .stdin
         .as_mut()
@@ -43,13 +43,13 @@ fn reads_stdin() {
 
 #[test]
 fn piping_into_head_does_not_panic() {
-    // `mdless FILE | head -1`: stdout closes early; mdless must exit quietly.
-    let mut producer = mdless()
+    // `diple FILE | head -1`: stdout closes early; diple must exit quietly.
+    let mut producer = diple()
         .arg(fixture("readme.md"))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn mdless");
+        .expect("spawn diple");
     let stdout = producer.stdout.take().expect("stdout");
     let head = Command::new("head")
         .arg("-1")
@@ -69,12 +69,12 @@ fn piping_into_head_does_not_panic() {
 
 #[test]
 fn width_affects_the_plain_output() {
-    let narrow = mdless()
+    let narrow = diple()
         .args(["--width", "40"])
         .arg(fixture("readme.md"))
         .output()
         .expect("run");
-    let wide = mdless()
+    let wide = diple()
         .args(["--width", "120"])
         .arg(fixture("readme.md"))
         .output()
@@ -102,7 +102,7 @@ fn width_affects_the_plain_output() {
 #[test]
 fn color_never_emits_no_escape_sequences() {
     for args in [vec!["--color", "never"], vec![]] {
-        let out = mdless()
+        let out = diple()
             .args(&args)
             .arg(fixture("mixed-formatting.md"))
             .output()
@@ -117,9 +117,9 @@ fn color_never_emits_no_escape_sequences() {
 
 #[test]
 fn color_always_emits_balanced_escape_sequences() {
-    // `mdless doc.md --color always | less -R` must be coloured even though
+    // `diple doc.md --color always | less -R` must be coloured even though
     // stdout is not a terminal.
-    let out = mdless()
+    let out = diple()
         .args(["--color", "always", "--width", "80"])
         .arg(fixture("mixed-formatting.md"))
         .output()
@@ -139,7 +139,7 @@ fn color_always_emits_balanced_escape_sequences() {
         "output must not end inside an escape sequence"
     );
     // Stripping the escapes reproduces the uncoloured rendering byte for byte.
-    let plain = mdless()
+    let plain = diple()
         .args(["--color", "never", "--width", "80"])
         .arg(fixture("mixed-formatting.md"))
         .output()
@@ -172,7 +172,7 @@ fn no_ansi_leaks_for_any_fixture() {
         if path.extension().and_then(|e| e.to_str()) != Some("md") {
             continue;
         }
-        let out = mdless().arg(&path).output().expect("run");
+        let out = diple().arg(&path).output().expect("run");
         assert!(out.status.success(), "{}: {:?}", path.display(), out.status);
         let text = String::from_utf8_lossy(&out.stdout);
         assert!(
@@ -185,10 +185,7 @@ fn no_ansi_leaks_for_any_fixture() {
 
 #[test]
 fn a_missing_file_exits_with_a_clear_message() {
-    let out = mdless()
-        .arg("definitely-not-here.md")
-        .output()
-        .expect("run");
+    let out = diple().arg("definitely-not-here.md").output().expect("run");
     assert_eq!(out.status.code(), Some(1), "runtime error");
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("definitely-not-here.md"), "{stderr}");
@@ -242,7 +239,7 @@ fn an_unknown_keybinding_action_exits_two() {
 
 #[test]
 fn print_capabilities_runs() {
-    let out = mdless().arg("--print-capabilities").output().expect("run");
+    let out = diple().arg("--print-capabilities").output().expect("run");
     assert!(out.status.success());
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("color"), "{text}");
@@ -251,13 +248,13 @@ fn print_capabilities_runs() {
 
 #[test]
 fn generators_produce_output() {
-    let man = mdless().arg("--generate-man").output().expect("run");
+    let man = diple().arg("--generate-man").output().expect("run");
     assert!(man.status.success());
     assert!(man.stdout.len() > 200, "man page is non-empty");
-    assert!(String::from_utf8_lossy(&man.stdout).contains("mdless"));
+    assert!(String::from_utf8_lossy(&man.stdout).contains("diple"));
 
     for shell in ["bash", "zsh", "fish"] {
-        let out = mdless()
+        let out = diple()
             .args(["--generate-completions", shell])
             .output()
             .expect("run");
@@ -268,7 +265,7 @@ fn generators_produce_output() {
 
 #[test]
 fn invalid_usage_exits_two() {
-    let out = mdless()
+    let out = diple()
         .args(["--color", "sometimes"])
         .output()
         .expect("run");
@@ -278,7 +275,7 @@ fn invalid_usage_exits_two() {
 #[test]
 fn help_and_version_exit_zero() {
     for flag in ["--help", "--version"] {
-        let out = mdless().arg(flag).output().expect("run");
+        let out = diple().arg(flag).output().expect("run");
         assert!(out.status.success(), "{flag}");
         assert!(!out.stdout.is_empty(), "{flag}");
     }
@@ -292,7 +289,7 @@ fn invalid_utf8_is_decoded_lossily() {
     bytes.push(0xff);
     bytes.extend_from_slice(b" more\n");
     std::fs::write(&path, bytes).expect("write");
-    let out = mdless().arg(&path).output().expect("run");
+    let out = diple().arg(&path).output().expect("run");
     assert!(out.status.success(), "a bad byte is not fatal");
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("Broken"), "{text}");
@@ -302,7 +299,7 @@ fn invalid_utf8_is_decoded_lossily() {
 #[test]
 fn a_document_with_a_mermaid_block_still_renders() {
     // A missing external dependency never blocks the document.
-    let out = mdless()
+    let out = diple()
         .env("PATH", "")
         .arg(fixture("mermaid.md"))
         .output()
@@ -317,7 +314,7 @@ fn an_unsupported_diagram_falls_back_to_its_source() {
     // The non-interactive path has no `s` key, so the marker alone
     // would make the diagram unreachable. Marker *and* source must both be
     // printed.
-    let out = mdless()
+    let out = diple()
         .env("PATH", "")
         .args(["--width", "80"])
         .arg(fixture("mermaid.md"))
@@ -342,7 +339,7 @@ fn unicode_filenames_and_content_work() {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("δοκιμή-文档.md");
     std::fs::write(&path, "# Ünïcödé\n\n日本語のテキスト。\n").expect("write");
-    let out = mdless().arg(&path).output().expect("run");
+    let out = diple().arg(&path).output().expect("run");
     assert!(out.status.success());
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("Ünïcödé"), "{text}");
@@ -352,7 +349,7 @@ fn unicode_filenames_and_content_work() {
 // --- man page ---------------------------------------------------------------
 
 fn man_page() -> String {
-    let out = mdless().arg("--generate-man").output().expect("run");
+    let out = diple().arg("--generate-man").output().expect("run");
     assert!(out.status.success());
     String::from_utf8(out.stdout).expect("the man page is UTF-8")
 }
@@ -397,9 +394,9 @@ fn man_page_documents_the_real_program() {
     for expected in [
         "config.toml",
         "XDG_CONFIG_HOME",
-        "MDLESS_CONFIG",
-        "MDLESS_THEME",
-        "MDLESS_MERMAID",
+        "DIPLE_CONFIG",
+        "DIPLE_THEME",
+        "DIPLE_MERMAID",
         "NO_COLOR",
         "CLICOLOR_FORCE",
         "COLORTERM",
@@ -410,7 +407,7 @@ fn man_page_documents_the_real_program() {
         "core.pager",
         "\\-\\-print\\-capabilities",
         "less (1)",
-        "mdless Manual",
+        "diple Manual",
     ] {
         assert!(
             page.contains(expected),
@@ -422,7 +419,7 @@ fn man_page_documents_the_real_program() {
 #[test]
 fn man_page_covers_every_long_option() {
     let page = man_page();
-    let help = mdless().arg("--help").output().expect("run").stdout;
+    let help = diple().arg("--help").output().expect("run").stdout;
     let help = String::from_utf8(help).expect("help is UTF-8");
     let mut checked = 0;
     for word in help.split(|c: char| c.is_whitespace() || c == ',' || c == '=') {
@@ -469,7 +466,7 @@ fn man_page_has_no_stray_control_lines() {
 
 #[test]
 fn man_page_date_follows_source_date_epoch() {
-    let out = mdless()
+    let out = diple()
         .arg("--generate-man")
         .env("SOURCE_DATE_EPOCH", "1756000000")
         .output()
@@ -483,17 +480,17 @@ fn man_page_date_follows_source_date_epoch() {
         title.contains("2025-08-24"),
         "SOURCE_DATE_EPOCH must decide the date, got: {title}"
     );
-    assert!(title.contains("mdless Manual"), "{title}");
+    assert!(title.contains("diple Manual"), "{title}");
 }
 
 #[test]
 fn key_hints_flags_are_accepted() {
     for flag in ["--key-hints", "--no-key-hints"] {
-        let out = mdless()
+        let out = diple()
             .arg(flag)
             .arg(fixture("readme.md"))
             .output()
-            .expect("run mdless");
+            .expect("run diple");
         assert!(out.status.success(), "{flag}: status {:?}", out.status);
         assert!(
             !String::from_utf8_lossy(&out.stdout).is_empty(),
@@ -572,15 +569,15 @@ fn plain_output_matches_the_render_snapshots_byte_for_byte() {
                 )
             });
 
-        let out = mdless()
+        let out = diple()
             // The snapshots are laid out with `unicode: true`; the binary
             // derives that from the locale, which a CI image need not set.
             // Pinning the *input* keeps this test about the option mapping.
-            .env("MDLESS_UNICODE", "1")
+            .env("DIPLE_UNICODE", "1")
             .args(["--color", "never", "--width", "80"])
             .arg(fixture(&format!("{name}.md")))
             .output()
-            .expect("run mdless");
+            .expect("run diple");
         assert!(out.status.success(), "{name}: {:?}", out.status);
         let text = String::from_utf8(out.stdout).expect("the output is UTF-8");
         assert_eq!(

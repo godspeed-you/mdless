@@ -7,7 +7,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Action {
-    /// Quit mdless (`q`, `Ctrl-C`).
+    /// Quit diple (`q`, `Ctrl-C`).
     Quit,
     /// Cancel the current sub-mode (`Esc`).
     Cancel,

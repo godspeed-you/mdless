@@ -5,7 +5,7 @@
 //!   with `mmdc -i <in.mmd> -o <out.png> -b transparent -w <pixels>`.
 //! * The child process is polled against a hard deadline and killed on timeout.
 //! * Results are cached in memory and on disk under
-//!   `<cache dir>/mdless/mermaid/<sha256>.png` so that a resize-triggered
+//!   `<cache dir>/diple/mermaid/<sha256>.png` so that a resize-triggered
 //!   re-layout never re-invokes `mmdc`.
 //!
 //! Every failure mode is returned as [`MmdcError`]; the selector turns it into
@@ -102,10 +102,10 @@ fn is_executable(path: &Path) -> bool {
     }
 }
 
-/// Returns `<cache dir>/mdless/mermaid`, e.g. `~/.cache/mdless/mermaid`.
+/// Returns `<cache dir>/diple/mermaid`, e.g. `~/.cache/diple/mermaid`.
 #[must_use]
 pub fn cache_dir() -> Option<PathBuf> {
-    directories::BaseDirs::new().map(|d| d.cache_dir().join("mdless").join("mermaid"))
+    directories::BaseDirs::new().map(|d| d.cache_dir().join("diple").join("mermaid"))
 }
 
 /// Cache key for a diagram: SHA-256 over the requested pixel width, the source
@@ -115,7 +115,7 @@ pub fn cache_dir() -> Option<PathBuf> {
 /// on-disk cache reusable between runs.
 #[must_use]
 pub fn cache_key(source: &str, width_px: u32) -> String {
-    let material = format!("mdless-mermaid-v1\n{width_px}\n{}\n{source}", source.len());
+    let material = format!("diple-mermaid-v1\n{width_px}\n{}\n{source}", source.len());
     sha256_hex(material.as_bytes())
 }
 
@@ -350,7 +350,7 @@ impl TempDir {
         let short: String = key.chars().take(16).collect();
         let seq = TEMP_DIR_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "mdless-mermaid-{}-{seq}-{short}",
+            "diple-mermaid-{}-{seq}-{short}",
             std::process::id()
         ));
         std::fs::create_dir_all(&path).map_err(|e| MmdcError::Spawn {
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn timeout_kills_the_child() {
         // A stand-in "mmdc" that ignores its arguments and never terminates.
-        let dir = std::env::temp_dir().join(format!("mdless-mermaid-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("diple-mermaid-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("a writable temp dir is required");
         let script = dir.join("slow-mmdc");
         std::fs::write(&script, "#!/bin/sh\nsleep 30\n").expect("write the stand-in mmdc script");
@@ -451,7 +451,7 @@ mod tests {
     #[test]
     fn cache_dir_is_under_the_user_cache() {
         let dir = cache_dir().expect("a home directory is required to locate the cache");
-        assert!(dir.ends_with("mdless/mermaid"), "{}", dir.display());
+        assert!(dir.ends_with("diple/mermaid"), "{}", dir.display());
     }
 
     /// Exercises the real `mmdc` binary end to end.
@@ -459,24 +459,24 @@ mod tests {
     /// Ignored by default. Run it with:
     ///
     /// ```text
-    /// MDLESS_TEST_MMDC=1 cargo test --lib mermaid::mmdc::tests::real_mmdc_round_trip -- --ignored
+    /// DIPLE_TEST_MMDC=1 cargo test --lib mermaid::mmdc::tests::real_mmdc_round_trip -- --ignored
     /// ```
     ///
     /// With the opt-in set, an `mmdc` that is missing or broken (for example a
     /// headless Chromium that cannot start) fails the test — it is never
     /// skipped.
     #[test]
-    #[ignore = "requires a working `mmdc`; set MDLESS_TEST_MMDC=1 and pass --ignored"]
+    #[ignore = "requires a working `mmdc`; set DIPLE_TEST_MMDC=1 and pass --ignored"]
     fn real_mmdc_round_trip() {
         assert_eq!(
-            std::env::var("MDLESS_TEST_MMDC").ok().as_deref(),
+            std::env::var("DIPLE_TEST_MMDC").ok().as_deref(),
             Some("1"),
-            "set MDLESS_TEST_MMDC=1 to run this test"
+            "set DIPLE_TEST_MMDC=1 to run this test"
         );
         // A private cache directory, so the "served from cache" assertion below
         // cannot be satisfied by a PNG left behind by an earlier run.
         let cache = std::env::temp_dir().join(format!(
-            "mdless-mermaid-roundtrip-{}-{:?}",
+            "diple-mermaid-roundtrip-{}-{:?}",
             std::process::id(),
             std::thread::current().id()
         ));

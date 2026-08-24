@@ -1,7 +1,7 @@
 //! Shared helpers for the integration tests.
 //!
 //! This is a plain `mod common;` include rather than the crate's `testing`
-//! module: integration tests link `mdless` as an *external* crate, built
+//! module: integration tests link `diple` as an *external* crate, built
 //! without `cfg(test)`, so `crate::testing` is invisible from here. A
 //! subdirectory `mod.rs` is not compiled as its own test target, so nothing
 //! here needs a `#[test]`.
@@ -36,26 +36,26 @@ pub fn fixture_names() -> Vec<String> {
     names
 }
 
-/// The `mdless` binary with the developer's environment neutralised.
+/// The `diple` binary with the developer's environment neutralised.
 ///
 /// Without this, a developer (or a CI image) that exports `CLICOLOR_FORCE=1`
 /// fails `color_never_emits_no_escape_sequences`, and one that exports
-/// `MDLESS_THEME` changes what every test renders. `env_remove` rather than
+/// `DIPLE_THEME` changes what every test renders. `env_remove` rather than
 /// `env_clear`: clearing everything would also take `PATH` and the loader
 /// variables `Command::cargo_bin` itself resolves the binary through.
 ///
 /// Use this only where a test must pass its own `--config`; everywhere else
-/// use [`mdless`], which also adds `--no-config`.
+/// use [`diple`], which also adds `--no-config`.
 pub fn command() -> Command {
-    let mut cmd = Command::cargo_bin("mdless").expect("the mdless binary");
-    for var in ["MDLESS_THEME", "NO_COLOR", "CLICOLOR_FORCE"] {
+    let mut cmd = Command::cargo_bin("diple").expect("the diple binary");
+    for var in ["DIPLE_THEME", "NO_COLOR", "CLICOLOR_FORCE"] {
         cmd.env_remove(var);
     }
     cmd
 }
 
 /// [`command`] plus `--no-config`: the developer's `config.toml` is ignored.
-pub fn mdless() -> Command {
+pub fn diple() -> Command {
     let mut cmd = command();
     cmd.arg("--no-config");
     cmd

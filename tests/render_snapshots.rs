@@ -14,10 +14,10 @@
 //!   accepted snapshots. An invariant fails with a pointer at the offending
 //!   line instead.
 
-use mdless::document::{parse, FoldState};
-use mdless::layout::{Layout, LayoutOptions};
-use mdless::render::primitives::LineKind;
-use mdless::render::theme::Theme;
+use diple::document::{parse, FoldState};
+use diple::layout::{Layout, LayoutOptions};
+use diple::render::primitives::LineKind;
+use diple::render::theme::Theme;
 
 const WIDTHS: [usize; 3] = [40, 80, 120];
 
@@ -197,7 +197,7 @@ fn collapsed_sections_render_only_their_headings() {
             .filter(|s| s.parent.is_none())
             .filter_map(|s| doc.node(s.heading))
             .filter_map(|n| match &n.kind {
-                mdless::document::NodeKind::Heading(h) => Some(h.text.as_str()),
+                diple::document::NodeKind::Heading(h) => Some(h.text.as_str()),
                 _ => None,
             })
             .collect();

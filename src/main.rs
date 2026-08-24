@@ -1,4 +1,4 @@
-//! `mdless` — an interactive terminal Markdown reader.
+//! `diple` — an interactive terminal Markdown reader.
 //!
 //! Flow: parse CLI → load and merge configuration → handle the diagnostic and
 //! generator flags → read the document (file or stdin) → parse → detect
@@ -14,13 +14,13 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 use clap::Parser;
-use mdless::app::{self, App, AppEnv, AppOptions, DiagramProvider};
-use mdless::cli::CliArgs;
-use mdless::config::{self, Config, KeyMap};
-use mdless::document::{Document, NodeKind};
-use mdless::layout::{Layout, LayoutOptions};
-use mdless::mermaid::select_backend;
-use mdless::terminal::{self, lifecycle, Capabilities};
+use diple::app::{self, App, AppEnv, AppOptions, DiagramProvider};
+use diple::cli::CliArgs;
+use diple::config::{self, Config, KeyMap};
+use diple::document::{Document, NodeKind};
+use diple::layout::{Layout, LayoutOptions};
+use diple::mermaid::select_backend;
+use diple::terminal::{self, lifecycle, Capabilities};
 
 /// Exit code for a usage or configuration problem.
 const EXIT_USAGE: u8 = 2;
@@ -31,11 +31,11 @@ fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(Failure::Usage(message)) => {
-            eprintln!("mdless: {message}");
+            eprintln!("diple: {message}");
             ExitCode::from(EXIT_USAGE)
         }
         Err(Failure::Runtime(message)) => {
-            eprintln!("mdless: {message}");
+            eprintln!("diple: {message}");
             ExitCode::from(EXIT_FAILURE)
         }
         Err(Failure::BrokenPipe) => ExitCode::SUCCESS,
@@ -48,7 +48,7 @@ enum Failure {
     Usage(String),
     /// Runtime error (exit 1).
     Runtime(String),
-    /// stdout was closed (`mdless x.md | head`) — not an error.
+    /// stdout was closed (`diple x.md | head`) — not an error.
     BrokenPipe,
 }
 
@@ -80,13 +80,13 @@ fn run() -> Result<ExitCode, Failure> {
     // Hidden generators used by packaging; they must work without a terminal.
     if let Some(shell) = args.generate_completions {
         let mut out = std::io::stdout();
-        mdless::cli::generate_completions(shell, &mut out);
+        diple::cli::generate_completions(shell, &mut out);
         out.flush()?;
         return Ok(ExitCode::SUCCESS);
     }
     if args.generate_man {
         let mut out = std::io::stdout();
-        mdless::cli::generate_man(&mut out)?;
+        diple::cli::generate_man(&mut out)?;
         out.flush()?;
         return Ok(ExitCode::SUCCESS);
     }
@@ -122,10 +122,10 @@ fn run() -> Result<ExitCode, Failure> {
     }
 
     let (name, source) = read_input(args.file.as_deref())?;
-    let doc = mdless::document::parse(&source);
+    let doc = diple::document::parse(&source);
     if args.debug {
         eprintln!(
-            "mdless: parsed {} nodes in {:?}",
+            "diple: parsed {} nodes in {:?}",
             doc.node_count(),
             started.elapsed()
         );
@@ -169,7 +169,7 @@ fn run() -> Result<ExitCode, Failure> {
         },
     );
     if args.debug {
-        eprintln!("mdless: first frame ready after {:?}", started.elapsed());
+        eprintln!("diple: first frame ready after {:?}", started.elapsed());
     }
 
     let mut guard = lifecycle::TerminalGuard::enter(options)
@@ -215,7 +215,7 @@ fn decode(bytes: Vec<u8>, name: &str) -> String {
     match String::from_utf8(bytes) {
         Ok(text) => text,
         Err(error) => {
-            eprintln!("mdless: {name}: invalid UTF-8, decoding lossily");
+            eprintln!("diple: {name}: invalid UTF-8, decoding lossily");
             String::from_utf8_lossy(error.as_bytes()).into_owned()
         }
     }
@@ -241,7 +241,7 @@ fn build_diagrams(
 
 /// Non-interactive output: the plain rendered document on stdout.
 ///
-/// This is what makes `mdless file.md | head` and CI usage work. A closed
+/// This is what makes `diple file.md | head` and CI usage work. A closed
 /// stdout is silently accepted.
 fn print_plain(
     doc: &Document,
@@ -269,16 +269,16 @@ fn print_plain(
     // exactly `to_plain_text` at `ColorLevel::None`), so highlighting the
     // document would cost tens of milliseconds per language for output nobody
     // can tell apart. `--color always` still highlights everything.
-    opts.lazy_code = color == mdless::render::theme::ColorLevel::None;
+    opts.lazy_code = color == diple::render::theme::ColorLevel::None;
     let tree = Layout::build(doc, &opts);
 
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    // `--color always` must emit styling here too, so that `mdless doc.md
+    // `--color always` must emit styling here too, so that `diple doc.md
     // --color always | less -R` works. `never` and `auto` on a non-terminal
     // stdout resolve to `ColorLevel::None`, for which `to_ansi_text` returns
     // exactly `to_plain_text` — no escape can leak .
-    let rendered = mdless::render::to_ansi_text(&tree, color);
+    let rendered = diple::render::to_ansi_text(&tree, color);
     match out.write_all(rendered.as_bytes()) {
         Ok(()) => {}
         Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => return Ok(()),

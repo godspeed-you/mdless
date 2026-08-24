@@ -23,7 +23,7 @@ use super::ast::{
 use super::links::Link;
 use super::sections;
 
-/// Parser options used by mdless.
+/// Parser options used by diple.
 pub fn options() -> Options {
     Options::ENABLE_TABLES
         | Options::ENABLE_STRIKETHROUGH

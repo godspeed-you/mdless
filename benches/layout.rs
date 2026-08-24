@@ -5,10 +5,10 @@ mod common;
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use mdless::document::{parse, CodeBlock, NodeKind, Table};
-use mdless::layout::code::{highlight, layout_code, CodeCache, CodeOptions};
-use mdless::layout::table::{layout_table, TableOptions};
-use mdless::render::theme::Theme;
+use diple::document::{parse, CodeBlock, NodeKind, Table};
+use diple::layout::code::{highlight, layout_code, CodeCache, CodeOptions};
+use diple::layout::table::{layout_table, TableOptions};
+use diple::render::theme::Theme;
 
 fn first_table(src: &str) -> Table {
     let doc = parse(src);

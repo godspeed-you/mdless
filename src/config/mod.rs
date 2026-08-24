@@ -17,7 +17,7 @@ pub use schema::{
 use crate::cli::CliArgs;
 
 impl Config {
-    /// Apply `MDLESS_*` environment overrides and CLI overrides on top of
+    /// Apply `DIPLE_*` environment overrides and CLI overrides on top of
     /// this configuration. Precedence: defaults < file < env < CLI.
     pub fn merged(&self, cli: &CliArgs) -> Result<Config, ConfigError> {
         self.merged_with_env(cli, |k| std::env::var(k).ok())
@@ -32,13 +32,13 @@ impl Config {
         let mut merged = self.clone();
 
         // Environment overrides.
-        if let Some(theme) = env("MDLESS_THEME") {
+        if let Some(theme) = env("DIPLE_THEME") {
             merged.theme = Theme::parse(&theme);
         }
-        if let Some(backend) = env("MDLESS_MERMAID") {
+        if let Some(backend) = env("DIPLE_MERMAID") {
             merged.mermaid.backend =
                 MermaidBackend::parse(&backend).ok_or_else(|| ConfigError::Env {
-                    var: "MDLESS_MERMAID".to_string(),
+                    var: "DIPLE_MERMAID".to_string(),
                     value: backend.clone(),
                     expected: MermaidBackend::expected().trim().to_string(),
                 })?;
@@ -83,7 +83,7 @@ mod tests {
     use clap::Parser;
 
     fn cli(args: &[&str]) -> CliArgs {
-        CliArgs::try_parse_from(std::iter::once("mdless").chain(args.iter().copied())).unwrap()
+        CliArgs::try_parse_from(std::iter::once("diple").chain(args.iter().copied())).unwrap()
     }
 
     #[test]
@@ -111,8 +111,8 @@ mod tests {
     fn env_overrides_config_but_cli_wins() {
         let base = Config::default();
         let env = |k: &str| match k {
-            "MDLESS_THEME" => Some("dark".to_string()),
-            "MDLESS_MERMAID" => Some("mmdc".to_string()),
+            "DIPLE_THEME" => Some("dark".to_string()),
+            "DIPLE_MERMAID" => Some("mmdc".to_string()),
             _ => None,
         };
         let merged = base.merged_with_env(&cli(&[]), env).unwrap();
@@ -131,11 +131,11 @@ mod tests {
         let base = Config::default();
         let err = base
             .merged_with_env(&cli(&[]), |k| {
-                (k == "MDLESS_MERMAID").then(|| "webgl".to_string())
+                (k == "DIPLE_MERMAID").then(|| "webgl".to_string())
             })
             .unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("MDLESS_MERMAID"), "{msg}");
+        assert!(msg.contains("DIPLE_MERMAID"), "{msg}");
         assert!(msg.contains("webgl"), "{msg}");
         assert!(msg.contains("terminal"), "{msg}");
     }

@@ -1,5 +1,5 @@
 [package]
-name = "mdless"
+name = "diple"
 version = "0.2.0"
 edition = "2021"
 rust-version = "1.80"
@@ -8,13 +8,13 @@ authors = ["Marcel Arentz <gdspd_you@open-one.de>"]
 description = "Interactive terminal Markdown reader with folding and diagrams"
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/godspeed-you/mdless"
-repository = "https://github.com/godspeed-you/mdless"
-documentation = "https://docs.rs/mdless"
+homepage = "https://github.com/godspeed-you/diple"
+repository = "https://github.com/godspeed-you/diple"
+documentation = "https://docs.rs/diple"
 categories = ["command-line-utilities", "text-processing"]
 keywords = ["markdown", "pager", "terminal", "tui", "mermaid"]
 # Keep the published crate small: the benches, the fuzz crate and the CI
-# plumbing are not needed to build or use mdless. `tests/` stays in, snapshots
+# plumbing are not needed to build or use diple. `tests/` stays in, snapshots
 # included, so `cargo package` ships a crate whose test suite actually runs.
 exclude = [
     "/.github",
@@ -24,11 +24,11 @@ exclude = [
 ]
 
 [lib]
-name = "mdless"
+name = "diple"
 path = "src/lib.rs"
 
 [[bin]]
-name = "mdless"
+name = "diple"
 path = "src/main.rs"
 
 [features]
@@ -36,7 +36,7 @@ path = "src/main.rs"
 #
 # `syntax-onig` (C Oniguruma) is the default because the startup budget (p50 <
 # 30 ms to first frame) cannot be met without it. What dominates the first
-# frame is compiling a syntax definition's patterns on first use, and mdless
+# frame is compiling a syntax definition's patterns on first use, and diple
 # cannot defer that when the code block is on the first screen — which is where
 # a README puts it. Measured in a 100x24 pty over 25 runs each:
 #
@@ -60,7 +60,7 @@ path = "src/main.rs"
 # supported fallback for environments that cannot provide one. It is slower
 # to start but otherwise equivalent:
 #
-#     cargo install mdless --no-default-features --features syntax-fancy
+#     cargo install diple --no-default-features --features syntax-fancy
 default = ["syntax-onig"]
 syntax-onig = ["syntect/default-onig"]
 syntax-fancy = ["syntect/default-fancy"]
@@ -128,7 +128,7 @@ opt-level = 3
 # --- Debian packaging -------------------------------------------------------
 #
 # NOTE: the man page and the shell completions are produced by the binary
-# itself (`mdless --generate-man`, `mdless --generate-completions <shell>`)
+# itself (`diple --generate-man`, `diple --generate-completions <shell>`)
 # and must exist in `target/assets/` BEFORE `cargo deb --no-build` is run.
 # `scripts/release.sh` generates them into that directory; building the .deb
 # without that step fails with a missing-asset error, on purpose.
@@ -140,25 +140,25 @@ section = "text"
 priority = "optional"
 depends = "$auto"
 extended-description = """
-mdless renders Markdown in the terminal the way a pager renders text: it keeps
+diple renders Markdown in the terminal the way a pager renders text: it keeps
 the document's structure instead of flattening it. Headings become navigable,
 sections fold, tables are laid out to the terminal width, code blocks are
 syntax highlighted, links are followable and Mermaid diagrams are drawn with a
 built-in renderer (or through mermaid-cli when it is available).
 """
 assets = [
-    ["target/release/mdless", "usr/bin/", "755"],
-    ["target/assets/mdless.1", "usr/share/man/man1/mdless.1", "644"],
-    ["target/assets/mdless.bash", "usr/share/bash-completion/completions/mdless", "644"],
-    ["target/assets/_mdless", "usr/share/zsh/site-functions/_mdless", "644"],
-    ["target/assets/mdless.fish", "usr/share/fish/vendor_completions.d/mdless.fish", "644"],
-    ["README.md", "usr/share/doc/mdless/README.md", "644"],
-    ["CHANGELOG.md", "usr/share/doc/mdless/CHANGELOG.md", "644"],
-    ["LICENSE", "usr/share/doc/mdless/LICENSE", "644"],
-    ["docs/configuration.md", "usr/share/doc/mdless/configuration.md", "644"],
-    ["docs/keybindings.md", "usr/share/doc/mdless/keybindings.md", "644"],
-    ["docs/mermaid.md", "usr/share/doc/mdless/mermaid.md", "644"],
-    ["docs/terminal-compatibility-checklist.md", "usr/share/doc/mdless/terminal-compatibility-checklist.md", "644"],
+    ["target/release/diple", "usr/bin/", "755"],
+    ["target/assets/diple.1", "usr/share/man/man1/diple.1", "644"],
+    ["target/assets/diple.bash", "usr/share/bash-completion/completions/diple", "644"],
+    ["target/assets/_diple", "usr/share/zsh/site-functions/_diple", "644"],
+    ["target/assets/diple.fish", "usr/share/fish/vendor_completions.d/diple.fish", "644"],
+    ["README.md", "usr/share/doc/diple/README.md", "644"],
+    ["CHANGELOG.md", "usr/share/doc/diple/CHANGELOG.md", "644"],
+    ["LICENSE", "usr/share/doc/diple/LICENSE", "644"],
+    ["docs/configuration.md", "usr/share/doc/diple/configuration.md", "644"],
+    ["docs/keybindings.md", "usr/share/doc/diple/keybindings.md", "644"],
+    ["docs/mermaid.md", "usr/share/doc/diple/mermaid.md", "644"],
+    ["docs/terminal-compatibility-checklist.md", "usr/share/doc/diple/terminal-compatibility-checklist.md", "644"],
 ]
 
 [package.metadata.deb.variants.musl]
@@ -172,16 +172,16 @@ depends = ""
 summary = "Interactive terminal Markdown reader"
 license = "MIT"
 assets = [
-    { source = "target/release/mdless", dest = "/usr/bin/mdless", mode = "755" },
-    { source = "target/assets/mdless.1", dest = "/usr/share/man/man1/mdless.1", mode = "644", doc = true },
-    { source = "target/assets/mdless.bash", dest = "/usr/share/bash-completion/completions/mdless", mode = "644" },
-    { source = "target/assets/_mdless", dest = "/usr/share/zsh/site-functions/_mdless", mode = "644" },
-    { source = "target/assets/mdless.fish", dest = "/usr/share/fish/vendor_completions.d/mdless.fish", mode = "644" },
-    { source = "README.md", dest = "/usr/share/doc/mdless/README.md", mode = "644", doc = true },
-    { source = "CHANGELOG.md", dest = "/usr/share/doc/mdless/CHANGELOG.md", mode = "644", doc = true },
-    { source = "LICENSE", dest = "/usr/share/licenses/mdless/LICENSE", mode = "644", doc = true },
-    { source = "docs/configuration.md", dest = "/usr/share/doc/mdless/configuration.md", mode = "644", doc = true },
-    { source = "docs/keybindings.md", dest = "/usr/share/doc/mdless/keybindings.md", mode = "644", doc = true },
-    { source = "docs/mermaid.md", dest = "/usr/share/doc/mdless/mermaid.md", mode = "644", doc = true },
-    { source = "docs/terminal-compatibility-checklist.md", dest = "/usr/share/doc/mdless/terminal-compatibility-checklist.md", mode = "644", doc = true },
+    { source = "target/release/diple", dest = "/usr/bin/diple", mode = "755" },
+    { source = "target/assets/diple.1", dest = "/usr/share/man/man1/diple.1", mode = "644", doc = true },
+    { source = "target/assets/diple.bash", dest = "/usr/share/bash-completion/completions/diple", mode = "644" },
+    { source = "target/assets/_diple", dest = "/usr/share/zsh/site-functions/_diple", mode = "644" },
+    { source = "target/assets/diple.fish", dest = "/usr/share/fish/vendor_completions.d/diple.fish", mode = "644" },
+    { source = "README.md", dest = "/usr/share/doc/diple/README.md", mode = "644", doc = true },
+    { source = "CHANGELOG.md", dest = "/usr/share/doc/diple/CHANGELOG.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/diple/LICENSE", mode = "644", doc = true },
+    { source = "docs/configuration.md", dest = "/usr/share/doc/diple/configuration.md", mode = "644", doc = true },
+    { source = "docs/keybindings.md", dest = "/usr/share/doc/diple/keybindings.md", mode = "644", doc = true },
+    { source = "docs/mermaid.md", dest = "/usr/share/doc/diple/mermaid.md", mode = "644", doc = true },
+    { source = "docs/terminal-compatibility-checklist.md", dest = "/usr/share/doc/diple/terminal-compatibility-checklist.md", mode = "644", doc = true },
 ]

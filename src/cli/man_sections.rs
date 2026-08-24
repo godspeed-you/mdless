@@ -22,7 +22,7 @@
 /// `.SH "KEY BINDINGS"` — the default bindings, grouped as in
 /// `docs/keybindings.md`.
 pub const KEY_BINDINGS: &str = r#".SH "KEY BINDINGS"
-mdless follows
+diple follows
 .BR less (1)
 and Vim conventions where practical. Every binding is configurable in the
 .B [keys]
@@ -33,7 +33,7 @@ Press
 .B ?
 or
 .B F1
-inside mdless for the same list with your own overrides applied.
+inside diple for the same list with your own overrides applied.
 .SS "Paging and scrolling"
 .TP
 .BR j ", " Down
@@ -189,7 +189,7 @@ Quit (\fBquit\fR).
 /// `.SH CONFIGURATION` — the configuration *file*, as opposed to the
 /// `Configuration options` heading generated from the CLI flags.
 pub const CONFIGURATION: &str = r#".SH CONFIGURATION
-mdless is configured with a TOML file. The file is looked up in this order,
+diple is configured with a TOML file. The file is looked up in this order,
 and the first entry that applies wins:
 .TP
 .B \-\-no\-config
@@ -198,11 +198,11 @@ Skip every configuration file and use the built\-in defaults.
 .BI \-\-config " PATH"
 Use this file. It is an error if it does not exist.
 .TP
-.B $MDLESS_CONFIG
+.B $DIPLE_CONFIG
 Use this file. It is an error if it does not exist.
 .TP
-.B $XDG_CONFIG_HOME/mdless/config.toml
-Normally \fB~/.config/mdless/config.toml\fR. Silently skipped when absent.
+.B $XDG_CONFIG_HOME/diple/config.toml
+Normally \fB~/.config/diple/config.toml\fR. Silently skipped when absent.
 .PP
 Values are resolved with the precedence
 .PP
@@ -211,13 +211,13 @@ built\-in defaults < configuration file < environment < command line
 .RE
 .PP
 so a flag always beats
-.BR MDLESS_THEME ,
+.BR DIPLE_THEME ,
 which always beats the file.
 .PP
 Validate a file without starting the reader with
-.B mdless \-\-check\-config
+.B diple \-\-check\-config
 or
-.BR "mdless \-\-config ./my.toml \-\-check\-config" .
+.BR "diple \-\-config ./my.toml \-\-check\-config" .
 .SS "Complete example, showing every default"
 .RS 4
 .EX
@@ -273,7 +273,7 @@ An invalid configuration is reported before anything is rendered, naming the
 file, the line, the offending key, the value and what was expected:
 .RS 4
 .EX
-~/.config/mdless/config.toml:9: invalid value for `table.mode`: `fancy`
+~/.config/diple/config.toml:9: invalid value for `table.mode`: `fancy`
   \(em expected one of: auto, wrap, scroll, compact
 .EE
 .RE
@@ -290,7 +290,7 @@ Success. This also covers
 .BR \-\-check\-config ,
 .B \-\-print\-capabilities
 and a reader whose output pipe was closed early, as in
-.BR "mdless doc.md | head" .
+.BR "diple doc.md | head" .
 .TP
 .B 1
 Runtime error: the document could not be read or the terminal could not be
@@ -306,18 +306,18 @@ value or key binding that failed validation.
 /// `.SH ENVIRONMENT` — every variable actually read by the program.
 pub const ENVIRONMENT: &str = r#".SH ENVIRONMENT
 .TP
-.B MDLESS_CONFIG
+.B DIPLE_CONFIG
 Path to the configuration file, used when
 .B \-\-config
 is not given. It is an error if the file does not exist.
 .TP
-.B MDLESS_THEME
+.B DIPLE_THEME
 Overrides
 .B theme
 from the configuration file. Overridden in turn by
 .BR \-\-theme .
 .TP
-.B MDLESS_MERMAID
+.B DIPLE_MERMAID
 Overrides
 .BR mermaid.backend :
 one of \fBauto\fR, \fBterminal\fR, \fBmmdc\fR or \fBsource\fR. An
@@ -389,7 +389,7 @@ it marks a remote session in
 .BR LC_ALL ", " LC_CTYPE ", " LANG
 The first of these that is set decides whether box\-drawing characters are
 used. A locale announcing UTF\-8 enables them; \fBC\fR, \fBPOSIX\fR and every
-other value falls back to ASCII drawing. If none is set, mdless is
+other value falls back to ASCII drawing. If none is set, diple is
 conservative and uses ASCII.
 .TP
 .B XDG_CONFIG_HOME
@@ -409,13 +409,13 @@ Read only by
 when set to a UNIX timestamp, that date is stamped into the generated page, so
 that a page built from a Git tag is reproducible. The current date is never
 used, so that rebuilding the page yields identical bytes; when the variable is
-unset the date slot carries the mdless version instead.
+unset the date slot carries the diple version instead.
 .PP
 The following variables override capability detection and are intended for
-debugging and for terminals that mdless does not recognise. They are read
+debugging and for terminals that diple does not recognise. They are read
 before the configuration and the command line, both of which still win.
 .TP
-.B MDLESS_COLOR
+.B DIPLE_COLOR
 Force a colour level:
 .BR none ,
 .BR ansi16 ,
@@ -423,33 +423,33 @@ Force a colour level:
 or
 .BR truecolor .
 .TP
-.B MDLESS_UNICODE
+.B DIPLE_UNICODE
 Force box\-drawing characters on or off, overriding the locale check.
 .TP
-.B MDLESS_OSC8
+.B DIPLE_OSC8
 Force OSC 8 terminal hyperlinks on or off.
 .TP
-.B MDLESS_IMAGES
+.B DIPLE_IMAGES
 Force an image protocol:
 .BR none ,
 .B kitty
 or
 .BR sixel .
 .TP
-.B MDLESS_MOUSE
+.B DIPLE_MOUSE
 Force mouse reporting on or off. It can only narrow the detected value: mouse
 reporting is never enabled when the terminal cannot report events.
 .TP
-.B MDLESS_FORCE_IMAGES
+.B DIPLE_FORCE_IMAGES
 Assume tmux passthrough, and keep image output enabled even when standard
 output is not a terminal.
 .TP
-.B MDLESS_TMUX_PASSTHROUGH
+.B DIPLE_TMUX_PASSTHROUGH
 Assume that tmux was configured with
 .BR "set \-g allow\-passthrough on" ,
 so image protocols may be used inside tmux.
 .PP
-.B mdless \-\-print\-capabilities
+.B diple \-\-print\-capabilities
 prints every detected capability together with the evidence that decided it,
 which is the quickest way to see which of these took effect.
 "#;
@@ -457,32 +457,32 @@ which is the quickest way to see which of these took effect.
 /// `.SH FILES` — user files plus the installed paths.
 pub const FILES: &str = r#".SH FILES
 .TP
-.B ~/.config/mdless/config.toml
+.B ~/.config/diple/config.toml
 Default configuration file, or
-.B $XDG_CONFIG_HOME/mdless/config.toml
+.B $XDG_CONFIG_HOME/diple/config.toml
 when that variable is set. Absent by default.
 .TP
-.B ~/.cache/mdless/mermaid/
+.B ~/.cache/diple/mermaid/
 Cache of Mermaid diagrams rendered by
 .BR mmdc (1),
 keyed by diagram source and render width, or
-.B $XDG_CACHE_HOME/mdless/mermaid/
+.B $XDG_CACHE_HOME/diple/mermaid/
 when that variable is set. It may be deleted at any time.
 .TP
-.B /usr/bin/mdless
+.B /usr/bin/diple
 The installed executable.
 .TP
-.B /usr/share/man/man1/mdless.1
+.B /usr/share/man/man1/diple.1
 This manual page.
 .TP
-.B /usr/share/bash\-completion/completions/mdless
+.B /usr/share/bash\-completion/completions/diple
 Bash completion, generated by
-.BR "mdless \-\-generate\-completions bash" .
+.BR "diple \-\-generate\-completions bash" .
 .TP
-.B /usr/share/zsh/site\-functions/_mdless
+.B /usr/share/zsh/site\-functions/_diple
 Zsh completion.
 .TP
-.B /usr/share/fish/vendor_completions.d/mdless.fish
+.B /usr/share/fish/vendor_completions.d/diple.fish
 Fish completion.
 .PP
 The installed paths above are those of the distribution packages; a build
@@ -494,57 +494,57 @@ pub const EXAMPLES: &str = r#".SH EXAMPLES
 Read a file interactively:
 .RS 4
 .EX
-mdless README.md
+diple README.md
 .EE
 .RE
 .PP
-Read from standard input. mdless still runs interactively, reading keys from
+Read from standard input. diple still runs interactively, reading keys from
 .IR /dev/tty :
 .RS 4
 .EX
-cat README.md | mdless
-git show HEAD:README.md | mdless
-mdless < README.md
+cat README.md | diple
+git show HEAD:README.md | diple
+diple < README.md
 .EE
 .RE
 .PP
-When standard output is not a terminal, mdless renders the document once and
+When standard output is not a terminal, diple renders the document once and
 writes it as plain text, so it composes with other tools:
 .RS 4
 .EX
-mdless README.md | head \-40
-mdless README.md | grep \-n TODO
+diple README.md | head \-40
+diple README.md | grep \-n TODO
 .EE
 .RE
 .PP
 Open with the table of contents showing, a light theme and a fixed width:
 .RS 4
 .EX
-mdless \-\-toc \-\-theme light \-\-width 100 doc.md
+diple \-\-toc \-\-theme light \-\-width 100 doc.md
 .EE
 .RE
 .PP
-Use mdless as the pager for Git commands that emit Markdown:
+Use diple as the pager for Git commands that emit Markdown:
 .RS 4
 .EX
-git config \-\-global core.pager mdless
-git \-c core.pager=mdless show HEAD:README.md
+git config \-\-global core.pager diple
+git \-c core.pager=diple show HEAD:README.md
 .EE
 .RE
 .PP
-Inspect what mdless detected for the current terminal, with the evidence for
+Inspect what diple detected for the current terminal, with the evidence for
 each decision:
 .RS 4
 .EX
-mdless \-\-print\-capabilities
+diple \-\-print\-capabilities
 .EE
 .RE
 .PP
 Check a configuration file before using it:
 .RS 4
 .EX
-mdless \-\-check\-config
-mdless \-\-config ./my.toml \-\-check\-config
+diple \-\-check\-config
+diple \-\-config ./my.toml \-\-check\-config
 .EE
 .RE
 .PP
@@ -552,9 +552,9 @@ Force a Mermaid backend, for instance to compare the built\-in renderer with
 the Mermaid CLI, or to read the diagram source instead:
 .RS 4
 .EX
-mdless \-\-mermaid terminal diagrams.md
-mdless \-\-mermaid mmdc \-\-mermaid\-images always diagrams.md
-mdless \-\-mermaid source diagrams.md
+diple \-\-mermaid terminal diagrams.md
+diple \-\-mermaid mmdc \-\-mermaid\-images always diagrams.md
+diple \-\-mermaid source diagrams.md
 .EE
 .RE
 "#;
@@ -572,7 +572,7 @@ pub fn see_also() -> String {
 Mermaid CLI:
 .IR https://github.com/mermaid\-js/mermaid\-cli
 .PP
-mdless home page and issue tracker:
+diple home page and issue tracker:
 .IR {}
 {SEE_ALSO_TAIL}"#,
         escape(env!("CARGO_PKG_REPOSITORY"))
@@ -608,7 +608,7 @@ The distribution packages also install
 and
 .B mermaid.md
 under
-.BR /usr/share/doc/mdless/ .
+.BR /usr/share/doc/diple/ .
 "#;
 
 /// Every `.SH` heading this module contributes, in the order they are written.

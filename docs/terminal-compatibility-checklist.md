@@ -1,26 +1,26 @@
 # Terminal Compatibility Checklist
 
-mdless must be verified in real terminals before a
+diple must be verified in real terminals before a
 1.0 release. Rendering correctness at fixed widths is covered by automated
 snapshot tests; what cannot be automated is how a real terminal handles raw
 mode, escape sequences, image protocols and resize. This checklist covers that
 gap and must be completed for each release candidate.
 
-Run `mdless --print-capabilities` first in every environment and record the
-output — it states what mdless detected and why.
+Run `diple --print-capabilities` first in every environment and record the
+output — it states what diple detected and why.
 
 ## Procedure per environment
 
 For each terminal below, perform every step and record pass/fail:
 
-1. **Basic read** — `mdless docs/configuration.md`, scroll with `j`/`k`,
+1. **Basic read** — `diple docs/configuration.md`, scroll with `j`/`k`,
    `Space`/`b`, `g`/`G`.
 2. **No scrollback dump** — the document must appear on the alternate screen and
    leave the shell scrollback untouched.
 3. **Clean exit** — quit with `q`; the prompt must return with no leftover
    color, no raw mode, a visible cursor and a working terminal.
    Then repeat with `Ctrl-C`.
-4. **Panic safety** — `MDLESS_DEBUG_PANIC=1 mdless README.md` (or kill the
+4. **Panic safety** — `DIPLE_DEBUG_PANIC=1 diple README.md` (or kill the
    process with `SIGTERM`); the terminal must still be usable afterwards.
 5. **Resize** — resize the window narrow (≈40 cols) and wide (≈160 cols) while
    a table and a code block are on screen; text must reflow, tables must
@@ -37,7 +37,7 @@ For each terminal below, perform every step and record pass/fail:
     renderer, an image protocol or the source fallback was used, and confirm
     `s` toggles the source.
 12. **Mouse** — wheel scroll, click a heading to fold it (skip if `mouse = false`).
-13. **stdin** — `cat README.md | mdless` must be fully interactive (keyboard
+13. **stdin** — `cat README.md | diple` must be fully interactive (keyboard
     input comes from `/dev/tty`).
 
 ## Environments

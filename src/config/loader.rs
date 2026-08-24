@@ -1,4 +1,4 @@
-//! Configuration loading: explicit `--config` path, `MDLESS_CONFIG`, XDG
+//! Configuration loading: explicit `--config` path, `DIPLE_CONFIG`, XDG
 //! default location, or built-in defaults with `--no-config`. Invalid values
 //! are reported with path, key, value and expected form.
 
@@ -18,15 +18,15 @@ pub struct LoadedConfig {
     pub path: Option<PathBuf>,
 }
 
-/// Default XDG config file path (`~/.config/mdless/config.toml`).
+/// Default XDG config file path (`~/.config/diple/config.toml`).
 pub fn default_path() -> Option<PathBuf> {
-    ProjectDirs::from("", "", "mdless").map(|d| d.config_dir().join("config.toml"))
+    ProjectDirs::from("", "", "diple").map(|d| d.config_dir().join("config.toml"))
 }
 
 /// Load configuration.
 ///
 /// Precedence for the file location: `no_config` (skip everything) >
-/// `explicit` (`--config`, must exist) > `$MDLESS_CONFIG` (must exist) >
+/// `explicit` (`--config`, must exist) > `$DIPLE_CONFIG` (must exist) >
 /// XDG default (silently skipped when absent).
 pub fn load(explicit: Option<&Path>, no_config: bool) -> Result<LoadedConfig, ConfigError> {
     load_with_env(explicit, no_config, |k| std::env::var(k).ok())
@@ -44,7 +44,7 @@ pub fn load_with_env(
             path: None,
         });
     }
-    let env_path = env("MDLESS_CONFIG").map(PathBuf::from);
+    let env_path = env("DIPLE_CONFIG").map(PathBuf::from);
     let (path, required) = match (explicit, env_path) {
         (Some(p), _) => (p.to_path_buf(), true),
         (None, Some(p)) => (p, true),
@@ -469,10 +469,10 @@ toggle_fold = "za"
 
     #[test]
     fn missing_explicit_path_errors() {
-        let err = load_with_env(Some(Path::new("/nonexistent/mdless.toml")), false, |_| None)
-            .unwrap_err();
+        let err =
+            load_with_env(Some(Path::new("/nonexistent/diple.toml")), false, |_| None).unwrap_err();
         assert!(matches!(err, ConfigError::Io { .. }));
-        assert!(err.to_string().contains("/nonexistent/mdless.toml"));
+        assert!(err.to_string().contains("/nonexistent/diple.toml"));
     }
 
     #[test]
@@ -480,7 +480,7 @@ toggle_fold = "za"
         let (_d, path) = write_config("toc = true\n");
         let p = path.display().to_string();
         let loaded = load_with_env(None, false, move |k| {
-            (k == "MDLESS_CONFIG").then(|| p.clone())
+            (k == "DIPLE_CONFIG").then(|| p.clone())
         })
         .unwrap();
         assert!(loaded.config.toc);

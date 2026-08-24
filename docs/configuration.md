@@ -1,20 +1,20 @@
-# mdless — Configuration Reference
+# diple — Configuration Reference
 
 ## File location
 
-mdless reads, in order of precedence:
+diple reads, in order of precedence:
 
 1. `--no-config` — skip all configuration files, use built-in defaults
 2. `--config <PATH>` — this file (an error if it does not exist)
-3. `$MDLESS_CONFIG` — this file (an error if it does not exist)
-4. `$XDG_CONFIG_HOME/mdless/config.toml`, normally
-   `~/.config/mdless/config.toml` (silently skipped if absent)
+3. `$DIPLE_CONFIG` — this file (an error if it does not exist)
+4. `$XDG_CONFIG_HOME/diple/config.toml`, normally
+   `~/.config/diple/config.toml` (silently skipped if absent)
 
 Validate a file without starting the reader:
 
 ```bash
-mdless --check-config
-mdless --config ./my.toml --check-config
+diple --check-config
+diple --config ./my.toml --check-config
 ```
 
 ## Value precedence
@@ -23,7 +23,7 @@ mdless --config ./my.toml --check-config
 built-in defaults  <  configuration file  <  environment  <  command line
 ```
 
-Environment overrides: `MDLESS_CONFIG`, `MDLESS_THEME`, `MDLESS_MERMAID`.
+Environment overrides: `DIPLE_CONFIG`, `DIPLE_THEME`, `DIPLE_MERMAID`.
 
 ## Complete example with defaults
 
@@ -133,10 +133,10 @@ tmux). `always` and `never` override the detection. Regardless of this setting,
 | `images` | `auto` uses an image protocol where detected, `never` forces text output, `always` forces image output where a protocol exists |
 | `mmdc_command` | path or name of the Mermaid CLI binary |
 
-Inspect what mdless detected for your terminal:
+Inspect what diple detected for your terminal:
 
 ```bash
-mdless --print-capabilities
+diple --print-capabilities
 ```
 
 ## Error reporting
@@ -145,7 +145,7 @@ An invalid configuration is reported before anything is rendered, naming the
 file, the line, the offending key, the value and what was expected:
 
 ```
-~/.config/mdless/config.toml:9: invalid value for `table.mode`: `fancy`
+~/.config/diple/config.toml:9: invalid value for `table.mode`: `fancy`
   — expected one of: auto, wrap, scroll, compact
 ```
 

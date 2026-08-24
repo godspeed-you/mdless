@@ -1,22 +1,22 @@
-# mdless
+# diple
 
 **`less` for Markdown documents instead of text files.**
 
-[![CI](https://github.com/godspeed-you/mdless/actions/workflows/ci.yml/badge.svg)](https://github.com/godspeed-you/mdless/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/godspeed-you/mdless?sort=semver)](https://github.com/godspeed-you/mdless/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/godspeed-you/mdless)](LICENSE)
+[![CI](https://github.com/godspeed-you/diple/actions/workflows/ci.yml/badge.svg)](https://github.com/godspeed-you/diple/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/godspeed-you/diple?sort=semver)](https://github.com/godspeed-you/diple/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/godspeed-you/diple)](LICENSE)
 [![Rust 1.80+](https://img.shields.io/badge/rust-1.80%2B-orange?logo=rust)](rust-toolchain.toml)
 
 An interactive terminal Markdown reader with semantic navigation, collapsible
 sections, terminal-aware tables, syntax-highlighted code and Mermaid diagrams.
 
-mdless combines the rendering quality of tools such as `glow` with the
+diple combines the rendering quality of tools such as `glow` with the
 interaction model of `less`. Markdown is treated as a structured document, not
 as colored text: navigation, folding and search operate on the document model,
 so they stay correct when the terminal is resized.
 
 ```bash
-mdless README.md
+diple README.md
 ```
 
 ```text
@@ -65,10 +65,10 @@ mdless README.md
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./mdless_0.2.0_amd64.deb
+sudo apt install ./diple_0.2.0_amd64.deb
 
 # Fedora / RHEL
-sudo dnf install ./mdless-0.2.0.x86_64.rpm
+sudo dnf install ./diple-0.2.0.x86_64.rpm
 
 # Arch Linux
 cd packaging/arch && makepkg -si
@@ -81,7 +81,7 @@ cargo install --path .
 ```
 
 Requires Rust 1.80 or newer and a C compiler. The C compiler is needed for
-the oniguruma regex engine, which mdless uses by default because it is what
+the oniguruma regex engine, which diple uses by default because it is what
 makes the startup budget reachable — a syntax definition is compiled on first
 use, and that cost lands on the first frame. If you cannot provide a C
 toolchain, build with the pure-Rust engine instead:
@@ -108,14 +108,14 @@ diagrams that the built-in renderer does not cover.
 ## Usage
 
 ```bash
-mdless README.md            # read a file
-cat README.md | mdless      # read from stdin
-mdless < README.md          # read from a redirect
-git show HEAD:README.md | mdless
+diple README.md            # read a file
+cat README.md | diple      # read from stdin
+diple < README.md          # read from a redirect
+git show HEAD:README.md | diple
 ```
 
-When output is not a terminal, mdless prints the rendered document as plain
-text and exits — so `mdless README.md | head -20` and CI usage behave sensibly.
+When output is not a terminal, diple prints the rendered document as plain
+text and exits — so `diple README.md | head -20` and CI usage behave sensibly.
 
 ### Key bindings
 
@@ -143,7 +143,7 @@ Full list, including how to rebind: [docs/keybindings.md](docs/keybindings.md).
 ### Options
 
 ```text
-mdless [OPTIONS] [FILE]
+diple [OPTIONS] [FILE]
 
   --theme <auto|dark|light|NAME>     --color <auto|always|never>
   --width <COLUMNS>                  --mouse / --no-mouse
@@ -159,7 +159,7 @@ mdless [OPTIONS] [FILE]
 
 ## Configuration
 
-`~/.config/mdless/config.toml`:
+`~/.config/diple/config.toml`:
 
 ```toml
 theme = "auto"
@@ -187,14 +187,14 @@ Command-line options override the configuration file. Full reference:
 Validate a configuration without opening a document:
 
 ```bash
-mdless --check-config
+diple --check-config
 ```
 
-## Using mdless as a Git pager
+## Using diple as a Git pager
 
 ```bash
-git config core.pager mdless
-git show HEAD:README.md | mdless
+git config core.pager diple
+git show HEAD:README.md | diple
 ```
 
 ## Documentation
@@ -203,11 +203,11 @@ git show HEAD:README.md | mdless
 - [Keybinding reference](docs/keybindings.md)
 - [Mermaid behavior](docs/mermaid.md)
 - [Terminal compatibility checklist](docs/terminal-compatibility-checklist.md)
-- `man mdless`
+- `man diple`
 
 ## Troubleshooting
 
-**Colors look wrong or are missing.** Run `mdless --print-capabilities`; it
+**Colors look wrong or are missing.** Run `diple --print-capabilities`; it
 reports what was detected and the evidence for each decision. `NO_COLOR` and a
 non-terminal stdout always disable color. Force with `--color always`.
 
@@ -215,15 +215,15 @@ non-terminal stdout always disable color. Force with `--color always`.
 [docs/mermaid.md](docs/mermaid.md#troubleshooting). Inside tmux, image
 protocols need `set -g allow-passthrough on`.
 
-**Box drawing shows as question marks.** Your locale is not UTF-8; mdless falls
+**Box drawing shows as question marks.** Your locale is not UTF-8; diple falls
 back to ASCII automatically, so check `LANG`/`LC_ALL` if you expected Unicode.
 
 **Tables are cut off.** Scroll horizontally with `h`/`l`, or set
 `[table] mode = "wrap"` to wrap cells instead.
 
-**The terminal looks broken after a crash.** mdless restores the terminal on
+**The terminal looks broken after a crash.** diple restores the terminal on
 every exit path including panics; if something still slipped through, `reset`
-fixes it — and please report it: mdless treats terminal
+fixes it — and please report it: diple treats terminal
 corruption as a release blocker.
 
 ## Development

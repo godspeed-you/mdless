@@ -3,7 +3,7 @@
 //! # Why environment variables only
 //!
 //! Detection is **purely** based on environment variables, the `isatty` state of
-//! the standard streams and the terminal size reported by `ioctl`. mdless
+//! the standard streams and the terminal size reported by `ioctl`. diple
 //! deliberately never writes a query escape sequence (`DA1`, `XTGETTCAP`,
 //! `CSI 16 t`, …) to the terminal during startup:
 //!
@@ -11,15 +11,15 @@
 //!   answer cost us the full timeout, which alone would blow the sub-30 ms
 //!   startup budget.
 //! * If the reply arrives late (slow SSH link, tmux without passthrough) the
-//!   response bytes are delivered to the shell after mdless exits, or are mixed
+//!   response bytes are delivered to the shell after diple exits, or are mixed
 //!   into the document output — visible corruption.
-//! * Queries are unsafe while stdin is a pipe (`cat x.md | mdless`), which is an
+//! * Queries are unsafe while stdin is a pipe (`cat x.md | diple`), which is an
 //!   explicitly supported mode.
 //!
 //! The cost of that decision is a slightly coarser result; we therefore
 //! **always fail toward the conservative mode** and let the user override
-//! anything through configuration, `MDLESS_*` variables or CLI flags, and
-//! inspect the outcome with `mdless --print-capabilities`.
+//! anything through configuration, `DIPLE_*` variables or CLI flags, and
+//! inspect the outcome with `diple --print-capabilities`.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -42,7 +42,7 @@ pub enum ColorLevel {
 }
 
 impl ColorLevel {
-    /// Canonical lower-case name used in reports and `MDLESS_COLOR`.
+    /// Canonical lower-case name used in reports and `DIPLE_COLOR`.
     pub fn as_str(self) -> &'static str {
         match self {
             ColorLevel::None => "none",
@@ -86,7 +86,7 @@ pub enum ImageSupport {
 }
 
 impl ImageSupport {
-    /// Canonical lower-case name used in reports and `MDLESS_IMAGES`.
+    /// Canonical lower-case name used in reports and `DIPLE_IMAGES`.
     pub fn as_str(self) -> &'static str {
         match self {
             ImageSupport::None => "none",
@@ -201,13 +201,13 @@ impl Evidence {
 /// Explicit overrides applied on top of detection.
 ///
 /// Values come from the configuration file (`color`, `links.osc8`,
-/// `mermaid.images`) and from the CLI; `MDLESS_*` variables are handled inside
+/// `mermaid.images`) and from the CLI; `DIPLE_*` variables are handled inside
 /// [`detect_from`] because they are part of the environment.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CapabilityOverrides {
     /// `color` / `--color`.
     pub color: Option<ColorMode>,
-    /// Force an exact colour level (used by `MDLESS_COLOR=256`).
+    /// Force an exact colour level (used by `DIPLE_COLOR=256`).
     pub color_level: Option<ColorLevel>,
     /// `links.osc8`.
     pub osc8: Option<Osc8Mode>,
@@ -336,14 +336,14 @@ pub fn detect_from(
 
     let passthrough = match overrides.allow_passthrough {
         Some(v) => v,
-        None => truthy(get("MDLESS_TMUX_PASSTHROUGH")) || truthy(get("MDLESS_FORCE_IMAGES")),
+        None => truthy(get("DIPLE_TMUX_PASSTHROUGH")) || truthy(get("DIPLE_FORCE_IMAGES")),
     };
     if tmux {
         ev.push(Evidence::new(
             "tmux-passthrough",
             passthrough.to_string(),
             if passthrough {
-                "forced (MDLESS_TMUX_PASSTHROUGH/MDLESS_FORCE_IMAGES or config)"
+                "forced (DIPLE_TMUX_PASSTHROUGH/DIPLE_FORCE_IMAGES or config)"
             } else {
                 "not assumed; tmux needs `set -g allow-passthrough on`"
             },
@@ -369,9 +369,9 @@ pub fn detect_from(
     let (mut color, mut color_reason) = detect_color(&term, &colorterm, &ident, size.is_tty, env);
 
     // Overrides, most specific last.
-    if let Some(level) = ColorLevel::parse(get("MDLESS_COLOR").unwrap_or("")) {
+    if let Some(level) = ColorLevel::parse(get("DIPLE_COLOR").unwrap_or("")) {
         color = level;
-        color_reason = format!("MDLESS_COLOR={}", get("MDLESS_COLOR").unwrap_or(""));
+        color_reason = format!("DIPLE_COLOR={}", get("DIPLE_COLOR").unwrap_or(""));
     }
     if let Some(level) = overrides.color_level {
         color = level;
@@ -392,9 +392,9 @@ pub fn detect_from(
 
     // ---- Unicode -------------------------------------------------------------
     let (mut unicode_box, mut unicode_reason) = detect_unicode(env, &term);
-    if let Some(v) = parse_bool(get("MDLESS_UNICODE")) {
+    if let Some(v) = parse_bool(get("DIPLE_UNICODE")) {
         unicode_box = v;
-        unicode_reason = "MDLESS_UNICODE".to_string();
+        unicode_reason = "DIPLE_UNICODE".to_string();
     }
     if let Some(v) = overrides.unicode_box {
         unicode_box = v;
@@ -408,9 +408,9 @@ pub fn detect_from(
 
     // ---- OSC 8 ---------------------------------------------------------------
     let (mut osc8, mut osc8_reason) = detect_osc8(&ident, env, tmux, passthrough, size.is_tty);
-    if let Some(v) = parse_bool(get("MDLESS_OSC8")) {
+    if let Some(v) = parse_bool(get("DIPLE_OSC8")) {
         osc8 = v;
-        osc8_reason = "MDLESS_OSC8".to_string();
+        osc8_reason = "DIPLE_OSC8".to_string();
     }
     match overrides.osc8 {
         Some(Osc8Mode::Never) => {
@@ -435,12 +435,12 @@ pub fn detect_from(
         images = ImageSupport::None;
         images_reason =
             "inside tmux without passthrough; enable with `set -g allow-passthrough on` \
-             or MDLESS_FORCE_IMAGES=1"
+             or DIPLE_FORCE_IMAGES=1"
                 .to_string();
     }
-    if let Some(forced) = ImageSupport::parse(get("MDLESS_IMAGES").unwrap_or("")) {
+    if let Some(forced) = ImageSupport::parse(get("DIPLE_IMAGES").unwrap_or("")) {
         images = forced;
-        images_reason = format!("MDLESS_IMAGES={}", get("MDLESS_IMAGES").unwrap_or(""));
+        images_reason = format!("DIPLE_IMAGES={}", get("DIPLE_IMAGES").unwrap_or(""));
     }
     if let Some(forced) = overrides.image_protocol {
         images = forced;
@@ -458,7 +458,7 @@ pub fn detect_from(
         }
         _ => {}
     }
-    if !size.is_tty && !truthy(get("MDLESS_FORCE_IMAGES")) {
+    if !size.is_tty && !truthy(get("DIPLE_FORCE_IMAGES")) {
         images = ImageSupport::None;
         images_reason = "stdout is not a terminal".to_string();
     }
@@ -477,7 +477,7 @@ pub fn detect_from(
         format!("TERM={term} cannot report mouse events")
     };
     for (requested, source) in [
-        (parse_bool(get("MDLESS_MOUSE")), "MDLESS_MOUSE"),
+        (parse_bool(get("DIPLE_MOUSE")), "DIPLE_MOUSE"),
         (overrides.mouse, "configuration/CLI: mouse"),
     ] {
         let Some(requested) = requested else { continue };
@@ -886,10 +886,8 @@ impl Capabilities {
     /// it, so users can diagnose why a feature is off.
     pub fn describe(&self) -> String {
         let mut out = String::new();
-        out.push_str("mdless terminal capabilities\n");
-        out.push_str(
-            "(detection is environment-based only; mdless never queries the terminal)\n\n",
-        );
+        out.push_str("diple terminal capabilities\n");
+        out.push_str("(detection is environment-based only; diple never queries the terminal)\n\n");
         let width = self
             .evidence
             .iter()
@@ -1067,7 +1065,7 @@ mod tests {
         let c = caps(&[
             ("TERM", "xterm-kitty"),
             ("TMUX", "/tmp/x,1,0"),
-            ("MDLESS_FORCE_IMAGES", "1"),
+            ("DIPLE_FORCE_IMAGES", "1"),
         ]);
         assert_eq!(c.images, ImageSupport::Kitty);
         assert!(c.osc8);
@@ -1152,14 +1150,14 @@ mod tests {
     }
 
     #[test]
-    fn mdless_env_overrides() {
-        let c = caps(&[("TERM", "xterm-256color"), ("MDLESS_COLOR", "truecolor")]);
+    fn diple_env_overrides() {
+        let c = caps(&[("TERM", "xterm-256color"), ("DIPLE_COLOR", "truecolor")]);
         assert_eq!(c.color, ColorLevel::TrueColor);
-        let c = caps(&[("TERM", "xterm-kitty"), ("MDLESS_IMAGES", "none")]);
+        let c = caps(&[("TERM", "xterm-kitty"), ("DIPLE_IMAGES", "none")]);
         assert_eq!(c.images, ImageSupport::None);
-        let c = caps(&[("TERM", "vt100"), ("MDLESS_OSC8", "1")]);
+        let c = caps(&[("TERM", "vt100"), ("DIPLE_OSC8", "1")]);
         assert!(c.osc8);
-        let c = caps(&[("TERM", "vt100"), ("MDLESS_UNICODE", "1")]);
+        let c = caps(&[("TERM", "vt100"), ("DIPLE_UNICODE", "1")]);
         assert!(c.unicode_box);
     }
 

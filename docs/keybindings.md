@@ -1,7 +1,7 @@
-# mdless — Keybinding Reference
+# diple — Keybinding Reference
 
 All bindings are configurable in the `[keys]` section of the configuration file
-(see [configuration.md](configuration.md)). Press `?` or `F1` inside mdless for
+(see [configuration.md](configuration.md)). Press `?` or `F1` inside diple for
 the same list with your own overrides applied.
 
 Keys follow `less` and Vim conventions where practical.

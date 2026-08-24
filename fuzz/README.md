@@ -1,4 +1,4 @@
-# Fuzzing mdless
+# Fuzzing diple
 
 The rule: *the application must never panic on arbitrary document input*.
 
@@ -33,7 +33,7 @@ cargo +nightly fuzz run parse_markdown -- -max_total_time=60
 To keep the checked-in seed corpus clean, write new inputs elsewhere:
 
 ```bash
-cargo +nightly fuzz run layout /tmp/mdless-fuzz/layout fuzz/corpus/layout -- -max_total_time=60
+cargo +nightly fuzz run layout /tmp/diple-fuzz/layout fuzz/corpus/layout -- -max_total_time=60
 ```
 
 ## Stable-toolchain smoke run (CI)

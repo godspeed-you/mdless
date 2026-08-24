@@ -4,15 +4,15 @@
 //!
 //! Every function here takes raw bytes and must never panic.
 
-use mdless::document::{parse, Alignment, Inline, Inlines, Table};
-use mdless::layout::table::{layout_table, TableOptions};
-use mdless::layout::unicode;
-use mdless::layout::{Layout, LayoutOptions};
-use mdless::render::theme::Theme;
+use diple::document::{parse, Alignment, Inline, Inlines, Table};
+use diple::layout::table::{layout_table, TableOptions};
+use diple::layout::unicode;
+use diple::layout::{Layout, LayoutOptions};
+use diple::render::theme::Theme;
 
 /// Largest terminal width a fuzzed input may ask for.
 ///
-/// mdless itself clamps to the real terminal size; the cap only keeps the
+/// diple itself clamps to the real terminal size; the cap only keeps the
 /// fuzzer from spending all its time allocating gigantic lines.
 const MAX_WIDTH: usize = 500;
 
@@ -161,13 +161,13 @@ pub fn config(data: &[u8]) {
         return;
     };
     let mut path = std::env::temp_dir();
-    path.push(format!("mdless-fuzz-config-{}.toml", std::process::id()));
+    path.push(format!("diple-fuzz-config-{}.toml", std::process::id()));
     if std::fs::write(&path, text).is_err() {
         return;
     }
     // Both outcomes are valid: a well-formed config loads, a malformed one
     // must produce a `ConfigError` rather than a panic.
-    let _ = mdless::config::loader::load_file(&path);
+    let _ = diple::config::loader::load_file(&path);
 }
 
 /// The Mermaid subset parser and the native renderer behind it.
@@ -176,13 +176,13 @@ pub fn mermaid(data: &[u8]) {
     let Ok(text) = std::str::from_utf8(rest) else {
         return;
     };
-    let _ = mdless::mermaid::diagram_kind(text);
-    if let Ok(diagram) = mdless::mermaid::parse(text) {
-        let opts = mdless::mermaid::RenderOptions {
+    let _ = diple::mermaid::diagram_kind(text);
+    if let Ok(diagram) = diple::mermaid::parse(text) {
+        let opts = diple::mermaid::RenderOptions {
             width_cells: width_from(control),
             unicode_box: control & 1 == 0,
             ..Default::default()
         };
-        let _ = mdless::mermaid::terminal::render(&diagram, &opts);
+        let _ = diple::mermaid::terminal::render(&diagram, &opts);
     }
 }

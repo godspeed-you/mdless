@@ -18,7 +18,7 @@ pub fn command() -> clap::Command {
 /// Write a shell completion script to `out`.
 pub fn generate_completions(shell: Shell, out: &mut dyn io::Write) {
     let mut cmd = command();
-    clap_complete::generate(shell, &mut cmd, "mdless", out);
+    clap_complete::generate(shell, &mut cmd, "diple", out);
 }
 
 /// The date stamped into the `.TH` line, as `YYYY-MM-DD`.
@@ -32,7 +32,7 @@ pub fn generate_completions(shell: Shell, out: &mut dyn io::Write) {
 /// the empty string: `clap_mangen` writes the `.TH` arguments unquoted, so an
 /// empty date would silently shift `source` and `manual` one position left and
 /// the page would come out titled "General Commands Manual" with
-/// `mdless 0.1.0` in the date slot.
+/// `diple 0.1.0` in the date slot.
 fn man_date() -> String {
     let Some(epoch) = std::env::var("SOURCE_DATE_EPOCH")
         .ok()
@@ -63,11 +63,11 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
 /// The configured [`clap_mangen::Man`] for the page.
 fn man() -> clap_mangen::Man {
     clap_mangen::Man::new(command())
-        .title("MDLESS")
+        .title("DIPLE")
         .section("1")
         .date(man_date())
-        .source(concat!("mdless ", env!("CARGO_PKG_VERSION")))
-        .manual("mdless Manual")
+        .source(concat!("diple ", env!("CARGO_PKG_VERSION")))
+        .manual("diple Manual")
 }
 
 /// Write the roff man page to `out`.
@@ -279,11 +279,11 @@ mod tests {
             .lines()
             .find(|l| l.starts_with(".TH "))
             .expect("a .TH line");
-        assert!(title.contains("MDLESS"), "{title}");
+        assert!(title.contains("DIPLE"), "{title}");
         assert!(title.contains('1'), "{title}");
-        assert!(title.contains("mdless Manual"), "{title}");
+        assert!(title.contains("diple Manual"), "{title}");
         assert!(
-            title.contains(concat!("mdless ", env!("CARGO_PKG_VERSION"))),
+            title.contains(concat!("diple ", env!("CARGO_PKG_VERSION"))),
             "{title}"
         );
     }

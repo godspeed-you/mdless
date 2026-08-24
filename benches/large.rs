@@ -16,9 +16,9 @@ mod common;
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use mdless::document::{parse, FoldState, SearchIndex};
-use mdless::layout::{Layout, LayoutOptions};
-use mdless::render::theme::Theme;
+use diple::document::{parse, FoldState, SearchIndex};
+use diple::layout::{Layout, LayoutOptions};
+use diple::render::theme::Theme;
 
 const MB: usize = 1024 * 1024;
 

@@ -1,4 +1,4 @@
-# CI for mdless — a Rust command-line application.
+# CI for diple — a Rust command-line application.
 #
 # Mirrors the checks of `scripts/check.sh` so a push is never the first place a
 # failure shows up:
@@ -110,25 +110,25 @@ jobs:
       - name: Generate and validate
         run: |
           mkdir -p dist
-          ./target/release/mdless --generate-man > dist/mdless.1
-          test -s dist/mdless.1
-          grep -qi '^\.TH mdless' dist/mdless.1
+          ./target/release/diple --generate-man > dist/diple.1
+          test -s dist/diple.1
+          grep -qi '^\.TH diple' dist/diple.1
           # The page must at least document every long option of the CLI.
           # roff escapes every hyphen as `\-`, so compare against an unescaped copy.
-          sed 's/\\-/-/g' dist/mdless.1 > dist/mdless.1.plain
-          for opt in $(./target/release/mdless --help | grep -o -- '--[a-z-]\+' | sort -u); do
-            grep -q -- "$opt" dist/mdless.1.plain || { echo "man page does not mention $opt"; exit 1; }
+          sed 's/\\-/-/g' dist/diple.1 > dist/diple.1.plain
+          for opt in $(./target/release/diple --help | grep -o -- '--[a-z-]\+' | sort -u); do
+            grep -q -- "$opt" dist/diple.1.plain || { echo "man page does not mention $opt"; exit 1; }
           done
-          rm dist/mdless.1.plain
-          ./target/release/mdless --generate-completions bash > dist/mdless.bash
-          ./target/release/mdless --generate-completions zsh  > dist/_mdless
-          ./target/release/mdless --generate-completions fish > dist/mdless.fish
-          for f in dist/mdless.bash dist/_mdless dist/mdless.fish; do test -s "$f"; done
+          rm dist/diple.1.plain
+          ./target/release/diple --generate-completions bash > dist/diple.bash
+          ./target/release/diple --generate-completions zsh  > dist/_diple
+          ./target/release/diple --generate-completions fish > dist/diple.fish
+          for f in dist/diple.bash dist/_diple dist/diple.fish; do test -s "$f"; done
           # The bash completion must be loadable by bash itself.
-          bash -n dist/mdless.bash
+          bash -n dist/diple.bash
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends man-db groff-base
-          MANWIDTH=80 man --warnings -l dist/mdless.1 >/dev/null
+          MANWIDTH=80 man --warnings -l dist/diple.1 >/dev/null
       - uses: actions/upload-artifact@v4
         with:
           name: generated-assets
@@ -186,10 +186,10 @@ jobs:
       - name: Collect binary
         run: |
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/mdless" "dist/mdless-${{ matrix.target }}"
+          cp "target/${{ matrix.target }}/release/diple" "dist/diple-${{ matrix.target }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: mdless-${{ matrix.target }}
+          name: diple-${{ matrix.target }}
           path: dist/
           retention-days: 7
 

@@ -673,19 +673,19 @@ mod tests {
     /// Ignored by default. Run it with:
     ///
     /// ```text
-    /// MDLESS_TEST_MMDC=1 cargo test --lib mermaid::select::tests::real_mmdc_produces_an_image -- --ignored
+    /// DIPLE_TEST_MMDC=1 cargo test --lib mermaid::select::tests::real_mmdc_produces_an_image -- --ignored
     /// ```
     ///
     /// With the opt-in set, a missing or broken `mmdc` fails the test. In
     /// particular `MermaidOutput::Source` — the selector's fallback when the
     /// CLI errors out — is a failure here, not a skip.
     #[test]
-    #[ignore = "requires a working `mmdc`; set MDLESS_TEST_MMDC=1 and pass --ignored"]
+    #[ignore = "requires a working `mmdc`; set DIPLE_TEST_MMDC=1 and pass --ignored"]
     fn real_mmdc_produces_an_image() {
         assert_eq!(
-            std::env::var("MDLESS_TEST_MMDC").ok().as_deref(),
+            std::env::var("DIPLE_TEST_MMDC").ok().as_deref(),
             Some("1"),
-            "set MDLESS_TEST_MMDC=1 to run this test"
+            "set DIPLE_TEST_MMDC=1 to run this test"
         );
         assert!(
             super::super::mmdc::find_executable("mmdc").is_some(),

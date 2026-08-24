@@ -1,10 +1,10 @@
 # Maintainer: Marcel Arentz <gdspd_you@open-one.de>
-pkgname=mdless
+pkgname=diple
 pkgver=0.2.0
 pkgrel=1
 pkgdesc="Interactive terminal Markdown reader with semantic navigation, folding, tables and Mermaid diagrams"
 arch=('x86_64' 'aarch64')
-url="https://github.com/godspeed-you/mdless"
+url="https://github.com/godspeed-you/diple"
 license=('MIT')
 depends=('gcc-libs' 'oniguruma')
 makedepends=('cargo' 'gcc' 'pkgconf')

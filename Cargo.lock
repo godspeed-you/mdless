@@ -632,6 +632,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "diple"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "base64 0.23.1",
+ "clap",
+ "clap_complete",
+ "clap_mangen",
+ "criterion",
+ "crossterm",
+ "directories",
+ "image",
+ "insta",
+ "open",
+ "pretty_assertions",
+ "pulldown-cmark",
+ "ratatui",
+ "serde",
+ "syntect",
+ "tempfile",
+ "thiserror 2.0.20",
+ "toml",
+ "unicode-segmentation",
+ "unicode-width",
+ "url",
+]
+
+[[package]]
 name = "directories"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1254,35 +1283,6 @@ checksum = "c0aeb26bf5e836cc1c341c8106051b573f1766dfa05aa87f0b98be5e51b02303"
 dependencies = [
  "nix",
  "winapi",
-]
-
-[[package]]
-name = "mdless"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "base64 0.23.1",
- "clap",
- "clap_complete",
- "clap_mangen",
- "criterion",
- "crossterm",
- "directories",
- "image",
- "insta",
- "open",
- "pretty_assertions",
- "pulldown-cmark",
- "ratatui",
- "serde",
- "syntect",
- "tempfile",
- "thiserror 2.0.20",
- "toml",
- "unicode-segmentation",
- "unicode-width",
- "url",
 ]
 
 [[package]]

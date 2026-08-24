@@ -60,8 +60,8 @@ fi
 # every package; a generator that produces nothing must fail the build.
 printf '\033[1;34m==>\033[0m generated man page and completions\n'
 cargo build --release --locked --quiet
-BIN="target/release/mdless"
-"$BIN" --generate-man | grep -q '^\.TH mdless' \
+BIN="target/release/diple"
+"$BIN" --generate-man | grep -q '^\.TH diple' \
   || { echo "error: --generate-man produced no .TH header" >&2; exit 1; }
 for sh in bash zsh fish; do
   [ -n "$("$BIN" --generate-completions "$sh")" ] \

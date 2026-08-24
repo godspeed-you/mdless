@@ -61,7 +61,7 @@ pub struct TerminalOptions {
     /// Request kitty keyboard-enhancement flags.
     ///
     /// Off by default: enabling it costs a terminal round trip
-    /// (`supports_keyboard_enhancement`) and mdless does not need
+    /// (`supports_keyboard_enhancement`) and diple does not need
     /// disambiguated escape codes for its keymap.
     pub keyboard_enhancement: bool,
 }
@@ -147,7 +147,7 @@ impl Drop for TerminalGuard {
     }
 }
 
-/// Restore the terminal to its pre-`mdless` state, in reverse order.
+/// Restore the terminal to its pre-`diple` state, in reverse order.
 ///
 /// Idempotent and safe to call when nothing was entered — each step runs only
 /// if the corresponding bit is still set. Used by [`TerminalGuard::restore`]
@@ -228,7 +228,7 @@ pub fn is_interactive() -> bool {
 
 /// Open the controlling terminal for keyboard input.
 ///
-/// The document may arrive on stdin (`cat doc.md | mdless`), in which case
+/// The document may arrive on stdin (`cat doc.md | diple`), in which case
 /// stdin cannot also deliver key events; `/dev/tty` is then the keyboard
 /// source. Returns [`TerminalError::NoControllingTty`] when there is none (CI,
 /// `setsid`, cron), so the caller can fall back to non-interactive output

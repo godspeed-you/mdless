@@ -1,5 +1,5 @@
 [package]
-name = "mdless-fuzz"
+name = "diple-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
@@ -17,7 +17,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 
-[dependencies.mdless]
+[dependencies.diple]
 path = ".."
 
 [profile.release]

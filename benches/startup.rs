@@ -1,6 +1,6 @@
 //! Startup-path benchmarks.
 //!
-//! These three measurements together account for everything mdless does
+//! These three measurements together account for everything diple does
 //! between `main` and the first frame for a typical README:
 //!
 //! * `parse/readme` — Markdown → semantic [`Document`].
@@ -20,7 +20,7 @@
 //! for laying a README out. Criterion's warm-up absorbs it entirely, so every
 //! number in this file — `first_frame` included — is a steady-state number and
 //! **not** a time to first frame. The startup budget must be measured out of
-//! process, one `mdless --debug` run per sample, on a pty; these benchmarks
+//! process, one `diple --debug` run per sample, on a pty; these benchmarks
 //! only guard against the layout work itself regressing.
 
 mod common;
@@ -28,9 +28,9 @@ mod common;
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use mdless::document::parse;
-use mdless::layout::{Layout, LayoutOptions};
-use mdless::render::theme::Theme;
+use diple::document::parse;
+use diple::layout::{Layout, LayoutOptions};
+use diple::render::theme::Theme;
 
 fn bench_parse(c: &mut Criterion) {
     let src = common::readme();

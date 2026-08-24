@@ -66,7 +66,7 @@ impl fmt::Display for Orientation {
     }
 }
 
-/// Node outline. Mermaid shapes that mdless does not draw natively degrade to
+/// Node outline. Mermaid shapes that diple does not draw natively degrade to
 /// [`NodeShape::Rect`] at parse time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum NodeShape {
@@ -143,7 +143,7 @@ pub struct DiagramEdge {
 
 /// A `subgraph ... end` group.
 ///
-/// mdless parses subgraphs so that the contained nodes are laid out, but the
+/// diple parses subgraphs so that the contained nodes are laid out, but the
 /// native terminal renderer does **not** draw the grouping box; see
 /// [`Diagram::has_unsupported_features`].
 #[derive(Debug, Clone, PartialEq, Eq)]

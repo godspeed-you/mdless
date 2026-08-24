@@ -2,18 +2,18 @@
 //!
 //! # Keyboard input when the document comes from stdin
 //!
-//! `cat README.md | mdless` hands the document to stdin, so stdin cannot also
+//! `cat README.md | diple` hands the document to stdin, so stdin cannot also
 //! deliver key events. crossterm solves this itself: both its event source and
 //! `enable_raw_mode` call `tty_fd()`, which uses `STDIN_FILENO` only when it
 //! is a terminal and otherwise opens `/dev/tty` read-write. No `dup2` onto fd
-//! 0 is needed, and none is performed — mdless only verifies up front, via
+//! 0 is needed, and none is performed — diple only verifies up front, via
 //! [`crate::terminal::lifecycle::open_input_tty`], that a controlling terminal
 //! exists at all, and falls back to non-interactive output when it does not.
 //!
 //! # Idle behaviour
 //!
 //! The loop blocks in `event::poll` with a timeout and only redraws after an
-//! event, so an idle mdless uses no CPU — with one bounded exception: while it
+//! event, so an idle diple uses no CPU — with one bounded exception: while it
 //! is idle it highlights the deferred code blocks in the screen above and
 //! below the viewport (`App::realize_ahead`), which is what keeps the first
 //! block of a new language from costing a frame when it is scrolled into view.
@@ -569,10 +569,10 @@ mod tests {
     }
 
     #[test]
-    fn a_short_terminal_keeps_the_features_that_distinguish_mdless() {
+    fn a_short_terminal_keeps_the_features_that_distinguish_diple() {
         use ratatui::backend::TestBackend;
         // 100x20 is an ordinary terminal. Heading navigation and folding are
-        // what mdless has and `less` does not, so they must outlive the
+        // what diple has and `less` does not, so they must outlive the
         // generic pager rows when the sidebar has to shed groups.
         let mut a = app(
             "# One\n\ntext\n\n## Two\n\ntext\n\n## Three\n\ntext\n",

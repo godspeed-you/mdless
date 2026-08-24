@@ -151,7 +151,7 @@ fn group(title: &'static str, priority: u8, rows: Vec<Option<HintRow>>) -> Optio
 /// `Move` 0, `View` 1, `Headings` 2, `Fold` 3, `Search` 4, `Links` 5,
 /// `Diagram` 6.
 ///
-/// The ordering is deliberate: what distinguishes mdless from `less` is
+/// The ordering is deliberate: what distinguishes diple from `less` is
 /// semantic heading navigation and folding, so those outrank the generic
 /// pager features. `Move` survives longest because it is what the reader
 /// needs every second, and `View` next because it holds `q`, `?` and the key
@@ -418,7 +418,7 @@ mod tests {
             titles(&g),
             vec!["Move", "Headings", "Fold", "Search", "View"]
         );
-        // The two things that distinguish mdless from `less` outrank the
+        // The two things that distinguish diple from `less` outrank the
         // generic pager features, so they survive a short terminal.
         let by_title = |t: &str| g.iter().find(|x| x.title == t).map(|x| x.priority);
         assert_eq!(by_title("Move"), Some(0));

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// Top-level configuration (`~/.config/mdless/config.toml`).
+/// Top-level configuration (`~/.config/diple/config.toml`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -341,7 +341,7 @@ pub enum ConfigError {
     /// An environment variable override failed to validate.
     #[error("environment variable {var}: invalid value `{value}` — expected {expected}")]
     Env {
-        /// Variable name (e.g. `MDLESS_MERMAID`).
+        /// Variable name (e.g. `DIPLE_MERMAID`).
         var: String,
         /// The offending value.
         value: String,
