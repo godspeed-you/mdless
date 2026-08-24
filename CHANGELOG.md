@@ -11,6 +11,10 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-24
+
+First stable release.
+
 ### Added
 
 - `max_width` caps the line width before wrapping, and `center` puts the
@@ -97,5 +101,6 @@ therefore still open:
 - Packaging: `.deb`, `.rpm`, an Arch `PKGBUILD`, standalone Linux tarballs, a
   man page and bash/zsh/fish completions.
 
-[Unreleased]: https://github.com/godspeed-you/diple/compare/v0.2.0...main
+[Unreleased]: https://github.com/godspeed-you/diple/compare/v1.0.0...main
+[1.0.0]: https://github.com/godspeed-you/diple/releases/tag/v1.0.0
 [0.2.0]: https://github.com/godspeed-you/diple/releases/tag/v0.2.0

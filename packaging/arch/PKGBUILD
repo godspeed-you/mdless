@@ -1,6 +1,6 @@
 # Maintainer: Marcel Arentz <gdspd_you@open-one.de>
 pkgname=diple
-pkgver=0.2.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Interactive terminal Markdown reader with semantic navigation, folding, tables and Mermaid diagrams"
 arch=('x86_64' 'aarch64')
