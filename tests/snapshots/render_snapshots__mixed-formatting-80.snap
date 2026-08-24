@@ -1,0 +1,46 @@
+---
+source: tests/render_snapshots.rs
+expression: tree.to_plain_text()
+---
+Mixed Formatting
+════════════════
+
+This paragraph mixes bold, italic, bold italic, strikethrough, inline code, a
+link, and an image icon inline.
+
+Bold with nested italic inside and italic with code inside.
+
+▌ A blockquote with bold, a quoted link, and code.
+▌
+▌ ▌ Nested quote level two.
+
+Combinations in lists
+─────────────────────
+
+1. bold item
+2. italic item with strike
+3. code item and a list link
+
+Hard and soft breaks
+────────────────────
+
+line one with a hard break
+line two after hard break soft-wrapped continuation line
+
+Horizontal rules
+────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+
+Text between rules.
+
+────────────────────────────────────────────────────────────────────────────────
+
+HTML passthrough
+────────────────
+
+<div align="center">
+<b>raw html block</b>
+</div>
+
+Paragraph with <kbd>Ctrl</kbd>+<kbd>C</kbd> inline HTML.

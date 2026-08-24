@@ -1,0 +1,58 @@
+---
+source: tests/render_snapshots.rs
+expression: tree.to_plain_text()
+---
+Code Blocks
+===========
+
+Rust
+----
+
+1 | fn main() {
+2 |     let greeting = "hello";
+3 |     println!("{greeting}, world");
+4 | }
+
+Shell
+-----
+
+1 | #!/bin/sh
+2 | set -eu
+3 | for f in *.md; do
+4 |     wc -l "$f"
+5 | done
+
+Python
+------
+
+1 | def fib(n: int) -> int:
+2 |     a, b = 0, 1
+3 |     for _ in range(n):
+4 |         a, b = b, a + b
+5 |     return a
+
+No language
+-----------
+
+1 | plain preformatted text
+2 |   with indentation preserved
+
+Indented code block
+-------------------
+
+1 | indented code
+2 | second line
+
+Long lines
+----------
+
+1 | this is an extremely long line of code that will certainly not fit into an e
+  |   ighty column terminal and therefore exercises horizontal scrolling or wrap
+  |   ping behavior 1234567890
+
+Inline
+------
+
+Use cargo build --release to compile, and rustup update to update.
+
+1 | tab-indented code line

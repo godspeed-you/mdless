@@ -1,0 +1,45 @@
+---
+source: tests/render_snapshots.rs
+expression: tree.to_plain_text()
+---
+Mermaid Diagrams
+════════════════
+
+Simple flow
+───────────
+
+▏ graph LR
+▏     A --> B
+▏     B --> C
+
+Top-down with labels
+────────────────────
+
+▏ graph TD
+▏     Start[Start here] --> Decide{Ready?}
+▏     Decide -->|yes| Ship(Ship it)
+▏     Decide -->|no| Fix((Fix bugs))
+▏     Fix --> Decide
+
+Chains and fan-in
+─────────────────
+
+▏ flowchart RL
+▏     A --> B --> C
+▏     D & E --> F
+▏     %% a comment line
+
+Unsupported diagram type
+────────────────────────
+
+▏ sequenceDiagram
+▏     Alice->>Bob: Hello Bob
+▏     Bob-->>Alice: Hi Alice
+
+Regular paragraph between diagrams.
+
+Not mermaid
+───────────
+
+▏ graph LR
+▏     this is just a text block

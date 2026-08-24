@@ -1,0 +1,64 @@
+---
+source: tests/render_snapshots.rs
+expression: tree.to_plain_text()
+---
+Project Foo
+═══════════
+
+Project Foo provides a fast, reliable way to frobnicate widgets from the command line. It is designed to feel familiar
+to anyone who has used less, grep, or other classic Unix tools.
+
+CI
+
+Installation
+────────────
+
+Install from crates.io:
+
+▏ cargo install foo
+
+Or download a prebuilt binary from the releases page.
+
+  From source
+
+▏ git clone https://example.com/foo.git
+▏ cd foo
+▏ cargo build --release
+
+Usage
+─────
+
+Basic invocation:
+
+▏ foo input.txt --output result.txt
+
+Common flags:
+
+┌──────┬────────────────┐
+│ Flag │ Description    │
+├──────┼────────────────┤
+│ -v   │ verbose output │
+│ -q   │ quiet mode     │
+│ -o   │ output file    │
+└──────┴────────────────┘
+
+▌ Note: Foo reads from stdin when no input file is given.
+
+Configuration
+─────────────
+
+Foo looks for ~/.config/foo/config.toml. Example:
+
+▏ verbose = false
+▏ threads = 4
+
+See the configuration reference for details.
+
+License
+───────
+
+MIT. See LICENSE for the full text.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Made with care by the Foo team.

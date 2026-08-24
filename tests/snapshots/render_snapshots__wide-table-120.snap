@@ -1,0 +1,60 @@
+---
+source: tests/render_snapshots.rs
+expression: tree.to_plain_text()
+---
+Wide Table
+══════════
+
+A table that is wider than most terminals.
+
+┌─────────────────────────┬───────────┬─────────┬─────────────┬─────────────┬───────────────┬────────────┬─────────────┐
+│ Identifier              │ Component │ Type    │ Default     │ Constraints │ Description   │ Introduced │ Deprecated  │
+│                         │           │         │ value       │             │               │            │             │
+├─────────────────────────┼───────────┼─────────┼─────────────┼─────────────┼───────────────┼────────────┼─────────────┤
+│ max_connections         │ server    │ integer │ 100         │ 1..=10000   │ The maximum   │ 0.1.0      │ no          │
+│                         │           │         │             │             │ number of     │            │             │
+│                         │           │         │             │             │ simultaneous  │            │             │
+│                         │           │         │             │             │ client        │            │             │
+│                         │           │         │             │             │ connections   │            │             │
+│                         │           │         │             │             │ the server    │            │             │
+│                         │           │         │             │             │ will accept   │            │             │
+│                         │           │         │             │             │ before        │            │             │
+│                         │           │         │             │             │ refusing new  │            │             │
+│                         │           │         │             │             │ ones          │            │             │
+│ idle_timeout_seconds    │ server    │ integer │ 300         │ >= 0        │ How long an   │ 0.2.0      │ no          │
+│                         │           │         │             │             │ idle          │            │             │
+│                         │           │         │             │             │ connection    │            │             │
+│                         │           │         │             │             │ may stay open │            │             │
+│                         │           │         │             │             │ before the    │            │             │
+│                         │           │         │             │             │ server closes │            │             │
+│                         │           │         │             │             │ it            │            │             │
+│                         │           │         │             │             │ automatically │            │             │
+│ log_format              │ logging   │ string  │ "plain"     │ plain,      │ Output format │ 0.1.0      │ no          │
+│                         │           │         │             │ json,       │ used for all  │            │             │
+│                         │           │         │             │ logfmt      │ diagnostic    │            │             │
+│                         │           │         │             │             │ log messages  │            │             │
+│                         │           │         │             │             │ emitted on    │            │             │
+│                         │           │         │             │             │ standard      │            │             │
+│                         │           │         │             │             │ error         │            │             │
+│ enable_experimental_com │ transport │ boolean │ false       │ —           │ Turns on the  │ 0.9.0      │ yes, use    │
+│ pression                │           │         │             │             │ experimental  │            │ compression │
+│                         │           │         │             │             │ zstd-based    │            │             │
+│                         │           │         │             │             │ compression   │            │             │
+│                         │           │         │             │             │ negotiation   │            │             │
+│                         │           │         │             │             │ for peers     │            │             │
+│                         │           │         │             │             │ that          │            │             │
+│                         │           │         │             │             │ advertise     │            │             │
+│                         │           │         │             │             │ support       │            │             │
+│ compression             │ transport │ string  │ "auto"      │ auto, off,  │ Selects the   │ 1.0.0      │ no          │
+│                         │           │         │             │ zstd, lz4   │ compression   │            │             │
+│                         │           │         │             │             │ codec for     │            │             │
+│                         │           │         │             │             │ peer traffic; │            │             │
+│                         │           │         │             │             │ auto          │            │             │
+│                         │           │         │             │             │ negotiates    │            │             │
+│                         │           │         │             │             │ the best      │            │             │
+│                         │           │         │             │             │ mutually      │            │             │
+│                         │           │         │             │             │ supported     │            │             │
+│                         │           │         │             │             │ codec         │            │             │
+└─────────────────────────┴───────────┴─────────┴─────────────┴─────────────┴───────────────┴────────────┴─────────────┘
+
+Trailing paragraph after the wide table.
