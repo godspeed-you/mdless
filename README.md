@@ -19,25 +19,7 @@ so they stay correct when the terminal is resized.
 diple README.md
 ```
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│ README.md                                      37%  142/380 │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  Project Foo                                               │
-│  ═══════════                                               │
-│                                                            │
-│  This project provides ...                                 │
-│                                                            │
-│  Installation                                              │
-│  ────────────                                              │
-│                                                            │
-│    $ cargo install foo                                     │
-│                                                            │
-│  ▶ Configuration                                           │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
+![diple in action](docs/demo.gif)
 
 ## Features
 
