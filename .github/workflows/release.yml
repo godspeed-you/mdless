@@ -1,0 +1,322 @@
+# Release pipeline for mdless.
+#
+# Runs on a `v*` tag and produces every release artifact the project asks
+# for, the same set `scripts/release.sh` builds locally:
+#
+#   build    release binaries per target (Linux gnu/musl, macOS universal pair)
+#   package  .deb, .rpm and an Arch package, each with an install/purge check
+#   release  checksums, release notes cut from CHANGELOG.md, assets on the tag
+#
+# The tag and the Cargo.toml version must agree, or nothing is published.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v0.2.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  INSTA_UPDATE: "no"
+  # The target that is native to the runners; used for the packages and for
+  # generating the man page and the completions.
+  HOST_TARGET: x86_64-unknown-linux-gnu
+
+jobs:
+  # The tag is the single source of truth for the version; check it once, up
+  # front, so a mismatch fails before anything is built.
+  version:
+    name: version check
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - id: v
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          CARGO_VERSION="$(awk '
+            /^\[package\]/ { in_pkg = 1; next }
+            /^\[/          { in_pkg = 0 }
+            in_pkg && /^version[[:space:]]*=/ {
+              if (match($0, /"[^"]*"/)) { print substr($0, RSTART + 1, RLENGTH - 2); exit }
+            }' Cargo.toml)"
+          test "$VERSION" = "$CARGO_VERSION" \
+            || { echo "tag $TAG does not match Cargo.toml version $CARGO_VERSION"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------- build
+
+  generated-assets:
+    name: man page and completions
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked
+      - name: Generate
+        run: |
+          mkdir -p dist
+          ./target/release/mdless --generate-man > dist/mdless.1
+          grep -q '^\.TH mdless' dist/mdless.1
+          ./target/release/mdless --generate-completions bash > dist/mdless.bash
+          ./target/release/mdless --generate-completions zsh  > dist/_mdless
+          ./target/release/mdless --generate-completions fish > dist/mdless.fish
+          for f in dist/mdless.1 dist/mdless.bash dist/_mdless dist/mdless.fish; do test -s "$f"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-assets
+          path: dist/
+
+  build-linux:
+    name: build ${{ matrix.target }}
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: rustup target add ${{ matrix.target }}
+      # See ci.yml: oniguruma compiles C, so musl targets need a musl compiler
+      # and the aarch64 target needs a cross compiler.
+      - name: Install cross toolchain
+        run: |
+          case "${{ matrix.target }}" in
+            x86_64-unknown-linux-musl)
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends musl-tools
+              echo "CC_x86_64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
+              echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc" >> "$GITHUB_ENV"
+              ;;
+            aarch64-unknown-linux-musl)
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
+              echo "CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+              echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+              ;;
+          esac
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Collect binary
+        run: |
+          mkdir -p dist "artifact-target/${{ matrix.target }}/release"
+          cp "target/${{ matrix.target }}/release/mdless" "dist/mdless-${{ matrix.target }}"
+          # The .deb/.rpm jobs consume the binary from the cargo target layout.
+          cp "target/${{ matrix.target }}/release/mdless" "artifact-target/${{ matrix.target }}/release/mdless"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: |
+            dist/
+            artifact-target/
+
+  build-macos:
+    name: build macOS
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - run: cargo build --release --locked --target x86_64-apple-darwin
+      - run: cargo build --release --locked --target aarch64-apple-darwin
+      - name: Collect binaries
+        run: |
+          mkdir -p dist
+          cp target/x86_64-apple-darwin/release/mdless dist/mdless-x86_64-apple-darwin
+          cp target/aarch64-apple-darwin/release/mdless dist/mdless-aarch64-apple-darwin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-macos
+          path: dist/
+
+  # ---------------------------------------------------------------- package
+
+  package-deb:
+    name: package .deb
+    needs: [version, build-linux, generated-assets]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-x86_64-unknown-linux-gnu
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-assets
+          path: dist/
+      - uses: Swatinem/rust-cache@v2
+      - name: Restore the layout the packaging tools expect
+        run: |
+          # The Cargo.toml deb metadata references target/assets/*.
+          mkdir -p "target/$HOST_TARGET/release" target/assets
+          cp "artifact-target/$HOST_TARGET/release/mdless" "target/$HOST_TARGET/release/mdless"
+          chmod +x "target/$HOST_TARGET/release/mdless"
+          cp dist/mdless.1 dist/mdless.bash dist/_mdless dist/mdless.fish target/assets/
+      - name: Build the package
+        run: |
+          grep -q 'package\.metadata\.deb' Cargo.toml || { echo "Cargo.toml has no [package.metadata.deb]"; exit 1; }
+          cargo install cargo-deb --locked
+          cargo deb --no-build --no-strip --target "$HOST_TARGET" --output dist/
+      - name: Install / purge smoke test
+        run: |
+          # Installing and removing must leave nothing behind.
+          sudo apt-get update
+          sudo apt-get install -y ./dist/*.deb
+          mdless --version
+          test -f /usr/share/man/man1/mdless.1.gz || test -f /usr/share/man/man1/mdless.1
+          test -f /usr/share/bash-completion/completions/mdless
+          test -f /usr/share/zsh/site-functions/_mdless
+          sudo apt-get purge -y mdless
+          for f in /usr/bin/mdless \
+                   /usr/share/man/man1/mdless.1.gz /usr/share/man/man1/mdless.1 \
+                   /usr/share/bash-completion/completions/mdless \
+                   /usr/share/zsh/site-functions/_mdless \
+                   /usr/share/fish/vendor_completions.d/mdless.fish; do
+            if [ -e "$f" ]; then echo "left behind after purge: $f"; exit 1; fi
+          done
+          test ! -d /usr/share/doc/mdless
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-deb
+          path: dist/*.deb
+
+  package-rpm:
+    name: package .rpm
+    needs: [version, build-linux, generated-assets]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-x86_64-unknown-linux-gnu
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-assets
+          path: dist/
+      - uses: Swatinem/rust-cache@v2
+      - name: Restore the layout the packaging tools expect
+        run: |
+          mkdir -p "target/$HOST_TARGET/release" target/assets
+          cp "artifact-target/$HOST_TARGET/release/mdless" "target/$HOST_TARGET/release/mdless"
+          chmod +x "target/$HOST_TARGET/release/mdless"
+          cp dist/mdless.1 dist/mdless.bash dist/_mdless dist/mdless.fish target/assets/
+      - name: Build and validate the package
+        run: |
+          grep -q 'package\.metadata\.generate-rpm' Cargo.toml || { echo "Cargo.toml has no [package.metadata.generate-rpm]"; exit 1; }
+          cargo install cargo-generate-rpm --locked
+          cargo generate-rpm --target "$HOST_TARGET" --output dist/
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm
+          # No rpm-based runner here, so validate the payload instead of installing.
+          rpm -qlp dist/*.rpm
+          rpm -qlp dist/*.rpm | grep -qx /usr/bin/mdless
+          rpm -qlp dist/*.rpm | grep -q '/usr/share/man/man1/mdless.1'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-rpm
+          path: dist/*.rpm
+
+  package-arch:
+    name: package Arch
+    needs: version
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    # The PKGBUILD downloads the tag tarball from GitHub, so it can only run
+    # once the tag exists; a failure here must not block the release.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - name: makepkg, install, remove
+        run: |
+          pacman -Syu --noconfirm rust git
+          useradd -m builder && chown -R builder .
+          su builder -c "cd packaging/arch && makepkg -s --noconfirm"
+          pacman -U --noconfirm packaging/arch/*.pkg.tar.zst
+          mdless --version
+          test -f /usr/share/man/man1/mdless.1.gz || test -f /usr/share/man/man1/mdless.1
+          pacman -Rns --noconfirm mdless
+          test ! -e /usr/bin/mdless
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-arch
+          path: packaging/arch/*.pkg.tar.zst
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------- release
+
+  publish:
+    name: publish release
+    needs: [version, build-linux, build-macos, generated-assets, package-deb, package-rpm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      - name: Collect the assets and the checksums
+        run: |
+          mkdir -p dist
+          # Every uploaded artifact lands in artifacts/<name>/…; the release
+          # carries the binaries, the generated assets and the packages, but
+          # not the intermediate cargo target layout.
+          find artifacts -type f \
+            -not -path '*/artifact-target/*' \
+            -exec cp {} dist/ \;
+          # Write the sums outside dist/ first so the file cannot list itself.
+          (cd dist && sha256sum -- * > ../SHA256SUMS && mv ../SHA256SUMS .)
+          (cd dist && sha256sum -c SHA256SUMS)
+          ls -l dist/
+      - name: Cut the release notes from CHANGELOG.md
+        run: |
+          awk -v version="${{ needs.version.outputs.version }}" '
+            /^## / { if (found) exit; line = $0; gsub(/[][]/, "", line);
+                     if (line ~ ("^## " version "([^0-9.]|$)")) { found = 1 } ; next }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          test -s RELEASE_NOTES.md || { echo "CHANGELOG.md has no section for ${{ needs.version.outputs.version }}"; exit 1; }
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ needs.version.outputs.tag }}" \
+            --title "mdless ${{ needs.version.outputs.tag }}" \
+            --notes-file RELEASE_NOTES.md \
+            dist/*

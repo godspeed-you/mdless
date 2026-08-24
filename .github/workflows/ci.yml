@@ -1,0 +1,226 @@
+# CI for mdless — a Rust command-line application.
+#
+# Mirrors the checks of `scripts/check.sh` so a push is never the first place a
+# failure shows up:
+#
+#   lint     cargo fmt --check, cargo clippy, shellcheck
+#   test     cargo test, cargo test --release (snapshot tests included),
+#            generated man page and completion validation
+#   audit    cargo audit
+#   build    release binaries per target
+#
+# Packaging and releasing live in release.yml, which runs on tags.
+#
+# `fuzz-smoke` and `bench` are expensive and only run on the weekly schedule or
+# on demand; both are allowed to fail without failing the pipeline.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays, 04:00 UTC — the slot for fuzzing and benchmarks.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+# Never run twice for the same ref; a new push supersedes the running job.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  # Snapshot tests must never write new snapshots in CI.
+  INSTA_UPDATE: "no"
+
+jobs:
+  # ---------------------------------------------------------------- lint
+
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml pins the channel and the rustfmt/clippy components,
+      # so rustup installs the right toolchain on its own.
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # shellcheck ships with the GitHub runner image.
+      - run: shellcheck scripts/*.sh
+
+  # ---------------------------------------------------------------- test
+
+  test:
+    name: cargo test (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: debug
+            flags: ''
+          - profile: release
+            flags: '--release'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.profile }}
+      - run: cargo test ${{ matrix.flags }} --all-features --locked
+      - name: Upload rejected snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          # insta writes rejected snapshots next to the accepted ones.
+          name: rejected-snapshots-${{ matrix.profile }}
+          path: tests/snapshots/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Generated completion and man-page validation:
+  # both are produced by the binary itself, so a broken generator must fail here
+  # and not in a package.
+  generated-assets:
+    name: generated man page and completions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked
+      - name: Generate and validate
+        run: |
+          mkdir -p dist
+          ./target/release/mdless --generate-man > dist/mdless.1
+          test -s dist/mdless.1
+          grep -q '^\.TH mdless' dist/mdless.1
+          # The page must at least document every long option of the CLI.
+          # roff escapes every hyphen as `\-`, so compare against an unescaped copy.
+          sed 's/\\-/-/g' dist/mdless.1 > dist/mdless.1.plain
+          for opt in $(./target/release/mdless --help | grep -o -- '--[a-z-]\+' | sort -u); do
+            grep -q -- "$opt" dist/mdless.1.plain || { echo "man page does not mention $opt"; exit 1; }
+          done
+          rm dist/mdless.1.plain
+          ./target/release/mdless --generate-completions bash > dist/mdless.bash
+          ./target/release/mdless --generate-completions zsh  > dist/_mdless
+          ./target/release/mdless --generate-completions fish > dist/mdless.fish
+          for f in dist/mdless.bash dist/_mdless dist/mdless.fish; do test -s "$f"; done
+          # The bash completion must be loadable by bash itself.
+          bash -n dist/mdless.bash
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends man-db groff-base
+          MANWIDTH=80 man --warnings -l dist/mdless.1 >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: generated-assets
+          path: dist/
+          retention-days: 7
+
+  # ---------------------------------------------------------------- audit
+
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    # An advisory published after the fact must not block an unrelated merge.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit --deny warnings
+
+  # ---------------------------------------------------------------- build
+
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: rustup target add ${{ matrix.target }}
+      # The default feature set uses the oniguruma regex engine, which compiles
+      # C. musl targets need a real musl compiler: the host's glibc cc emits
+      # _FORTIFY_SOURCE symbols (__memcpy_chk) that musl does not provide.
+      # Cargo.toml exposes a pure-Rust fallback if that is ever unavailable.
+      - name: Install musl toolchain
+        if: endsWith(matrix.target, '-linux-musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+          echo "CC_x86_64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc" >> "$GITHUB_ENV"
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Collect binary
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/mdless" "dist/mdless-${{ matrix.target }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdless-${{ matrix.target }}
+          path: dist/
+          retention-days: 7
+
+  # ---------------------------------------------------- scheduled / on demand
+
+  fuzz-smoke:
+    name: fuzz smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Run every fuzz target for 60 s
+        run: |
+          test -f fuzz/Cargo.toml || { echo "no fuzz crate; nothing to do"; exit 0; }
+          rustup toolchain install nightly --profile minimal
+          cargo +nightly install cargo-fuzz --locked
+          for t in $(cargo +nightly fuzz list); do
+            cargo +nightly fuzz run "$t" -- -max_total_time=60
+          done
+
+  bench:
+    name: benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Run benchmarks
+        run: |
+          ls benches/*.rs >/dev/null 2>&1 || { echo "no benches; nothing to do"; exit 0; }
+          cargo bench --locked -- --output-format bencher | tee bench.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench
+          path: bench.txt
+          retention-days: 30
+          if-no-files-found: ignore
