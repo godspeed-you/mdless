@@ -69,6 +69,9 @@ impl Config {
         if let Some(max_width) = cli.max_width {
             merged.max_width = max_width;
         }
+        if let Some(center) = cli.center_override() {
+            merged.center = center;
+        }
         if let Some(backend) = cli.mermaid {
             merged.mermaid.backend = backend;
         }
@@ -111,19 +114,22 @@ mod tests {
     }
 
     #[test]
-    fn cli_overrides_the_width_limit() {
+    fn cli_overrides_the_width_limit_and_centring() {
         let base = Config {
             max_width: 80,
+            center: true,
             ..Config::default()
         };
         let merged = base
-            .merged_with_env(&cli(&["--max-width", "140"]), |_| None)
+            .merged_with_env(&cli(&["--max-width", "140", "--no-center"]), |_| None)
             .unwrap();
         assert_eq!(merged.max_width, 140);
+        assert!(!merged.center);
 
-        // An unset flag leaves the configured value alone.
+        // Unset flags leave the configured values alone.
         let merged = base.merged_with_env(&cli(&[]), |_| None).unwrap();
         assert_eq!(merged.max_width, 80);
+        assert!(merged.center);
     }
 
     #[test]

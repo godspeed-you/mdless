@@ -31,6 +31,12 @@ pub struct Config {
     /// a wide terminal. The document is laid out at
     /// `min(max_width, available)`, so the limit never widens anything.
     pub max_width: u16,
+    /// Centre the document in the columns the sidebars leave over.
+    ///
+    /// Only the document moves: the TOC keeps the left edge and the key hints
+    /// the right one, so with a `max_width` narrower than the terminal the
+    /// sidebars sit outside the text rather than beside it.
+    pub center: bool,
     /// Table rendering options.
     pub table: TableConfig,
     /// Code block rendering options.
@@ -54,6 +60,7 @@ impl Default for Config {
             line_numbers: false,
             wrap: true,
             max_width: 0,
+            center: false,
             table: TableConfig::default(),
             code: CodeConfig::default(),
             links: LinksConfig::default(),

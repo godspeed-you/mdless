@@ -36,6 +36,7 @@ key_hints = false       # start with the key hints sidebar open
 line_numbers = false    # document line numbers
 wrap = true             # reflow paragraphs to the terminal width
 max_width = 0           # cap the line width in columns; 0 = the full width
+center = false          # centre the document between the sidebars
 
 [table]
 mode = "auto"           # auto | wrap | scroll | compact
@@ -110,17 +111,25 @@ key map. It hides itself when the terminal is too narrow to leave 40 columns
 for the document, and yields to the table of contents when only one of the two
 sidebars fits.
 
-### `max_width`
+### `max_width` and `center`
 
 `max_width` caps the line width in columns before wrapping; `0` keeps the full
 available width. Both `max_width` and `--width` only ever narrow, so a value
 wider than the terminal changes nothing.
 
-The sidebars are unaffected: the table of contents keeps the left edge and the
-key hints sidebar the right one, so a narrow `max_width` leaves the unused
-columns between the document and the hints.
+`center = true` splits the columns the limit leaves over into two equal
+margins around the document — with `max_width = 140` on a 200-column terminal
+the text sits in the middle 140 columns with 30 columns of air on each side
+(an odd remainder gives the extra column to the right).
 
-Piped output (`diple doc.md | less -R`) honours the limit too.
+Only the document is centred. The table of contents keeps the left edge and
+the key hints sidebar the right one, so with a narrow `max_width` both sit
+outside the text rather than beside it, and the document stays centred in
+whatever the two of them leave over.
+
+Centring applies to the interactive view only: piped output (`diple doc.md |
+less -R`) honours `max_width` but is not padded, because leading blanks in a
+pipe belong to no screen.
 
 ### `[code]`
 

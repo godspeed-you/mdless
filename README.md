@@ -147,8 +147,8 @@ diple [OPTIONS] [FILE]
 
   --theme <auto|dark|light|NAME>     --color <auto|always|never>
   --width <COLUMNS>                  --max-width <COLUMNS>
-  --mouse / --no-mouse               --toc / --no-toc
-  --key-hints / --no-key-hints
+  --center / --no-center             --mouse / --no-mouse
+  --toc / --no-toc                   --key-hints / --no-key-hints
   --line-numbers / --no-line-numbers
   --wrap / --no-wrap
   --mermaid <auto|terminal|mmdc|source>
@@ -168,6 +168,7 @@ mouse = true
 toc = false
 key_hints = false
 max_width = 0
+center = false
 
 [table]
 mode = "auto"

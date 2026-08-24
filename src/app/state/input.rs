@@ -294,10 +294,10 @@ impl App {
             }
             return;
         }
-        // With a width limit the document ends before the hints sidebar
-        // does; clicks in between belong to no line.
+        // Clicks in the centring margin belong to no line.
+        let margin = self.content_margin();
         let column = usize::from(column).saturating_sub(usize::from(sidebar));
-        if column >= self.content_width() {
+        if column < margin || column >= margin + self.content_width() {
             return;
         }
         let line_index = self.top_line + usize::from(row);
@@ -306,8 +306,9 @@ impl App {
         };
         let node = line.node;
         let kind = line.kind.clone();
-        // Column inside the document, accounting for the sidebar and h-scroll.
-        let target_col = self.h_offset + column;
+        // Column inside the document, accounting for the sidebar, the
+        // centring margin and the h-scroll.
+        let target_col = self.h_offset + column - margin;
         let mut col = 0usize;
         let mut clicked_link = None;
         for span in &line.spans {
@@ -509,11 +510,12 @@ mod tests {
     }
 
     #[test]
-    fn clicks_past_a_width_limited_document_hit_nothing() {
+    fn clicks_land_on_the_document_through_the_centring_margin() {
         use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 
         let cfg = crate::config::Config {
             max_width: 60,
+            center: true,
             mouse: true,
             ..crate::config::Config::default()
         };
@@ -522,7 +524,8 @@ mod tests {
             .config(cfg)
             .build();
         a.caps.mouse = true;
-        assert_eq!(a.content_width(), 60);
+        let margin = a.content_margin();
+        assert_eq!(margin, 20);
 
         let heading_row = a
             .tree()
@@ -537,15 +540,19 @@ mod tests {
             modifiers: KeyModifiers::NONE,
         };
 
-        // Past the limit there is no document, even though the terminal has
-        // 40 more columns.
+        // Inside the left margin: no line lives there.
         let before = a.tree().len();
-        a.handle_mouse(&click(60));
-        assert_eq!(a.tree().len(), before, "the unused columns swallowed it");
+        a.handle_mouse(&click(margin as u16 - 1));
+        assert_eq!(a.tree().len(), before, "the margin swallowed the click");
 
-        // Inside it the heading still folds.
-        a.handle_mouse(&click(0));
+        // The first document column is the first cell after the margin.
+        a.handle_mouse(&click(margin as u16));
         assert!(a.tree().len() < before, "clicking the heading collapsed it");
+
+        // And the right margin is just as inert.
+        let before = a.tree().len();
+        a.handle_mouse(&click((margin + a.content_width()) as u16));
+        assert_eq!(a.tree().len(), before);
     }
 
     #[test]
