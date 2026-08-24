@@ -1,0 +1,5 @@
+Pgraph LR
+  A[Start] --> B{Choice}
+  B -->|yes| C((End))
+  B -.-> D
+  A & B ==> E

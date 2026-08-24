@@ -1,0 +1,15 @@
+Pgraph LR
+    A --> B
+    B --> C
+graph TD
+    Start[Start here] --> Decide{Ready?}
+    Decide -->|yes| Ship(Ship it)
+    Decide -->|no| Fix((Fix bugs))
+    Fix --> Decide
+flowchart RL
+    A --> B --> C
+    D & E --> F
+    %% a comment line
+sequenceDiagram
+    Alice->>Bob: Hello Bob
+    Bob-->>Alice: Hi Alice

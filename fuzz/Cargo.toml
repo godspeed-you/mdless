@@ -1,0 +1,66 @@
+[package]
+name = "mdless-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# Its own workspace on purpose: `cargo test`, `cargo clippy` and `cargo build`
+# at the repository root must not see this crate, because it only builds under
+# `cargo fuzz` (nightly + libFuzzer sanitizer instrumentation).
+[workspace]
+members = ["."]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.mdless]
+path = ".."
+
+[profile.release]
+debug = true
+
+[[bin]]
+name = "parse_markdown"
+path = "fuzz_targets/parse_markdown.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "layout"
+path = "fuzz_targets/layout.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "table"
+path = "fuzz_targets/table.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "unicode"
+path = "fuzz_targets/unicode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "config"
+path = "fuzz_targets/config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mermaid"
+path = "fuzz_targets/mermaid.rs"
+test = false
+doc = false
+bench = false

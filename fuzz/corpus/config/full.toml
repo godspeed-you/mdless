@@ -1,0 +1,31 @@
+theme = "auto"
+color = "auto"
+mouse = true
+toc = false
+line_numbers = false
+wrap = true
+
+[table]
+mode = "auto"
+max_column_width = 60
+
+[code]
+wrap = false
+line_numbers = false
+tab_width = 4
+
+[links]
+opener = "xdg-open"
+
+[mermaid]
+backend = "auto"
+images = "auto"
+mmdc_command = "mmdc"
+
+[keys]
+quit = "q"
+search = "/"
+next_heading = "]"
+previous_heading = "["
+toggle_toc = "t"
+toggle_fold = "za"

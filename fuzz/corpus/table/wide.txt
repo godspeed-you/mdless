@@ -1,0 +1,7 @@
+P|Identifier|Component|Type|Defaultvalue|Constraints|Description|Introduced|Deprecated|
+|---|---|---|---|---|---|---|---|
+|`max_connections`|server|integer|`100`|1..=10000|Themaximumnumberofsimultaneousclientconnectionstheserverwillacceptbeforerefusingnewones|0.1.0|no|
+|`idle_timeout_seconds`|server|integer|`300`|>=0|Howlonganidleconnectionmaystayopenbeforetheserverclosesitautomatically|0.2.0|no|
+|`log_format`|logging|string|`"plain"`|plain,json,logfmt|Outputformatusedforalldiagnosticlogmessagesemittedonstandarderror|0.1.0|no|
+|`enable_experimental_compression`|transport|boolean|`false`|—|Turnsontheexperimentalzstd-basedcompressionnegotiationforpeersthatadvertisesupport|0.9.0|yes,use`compression`|
+|`compression`|transport|string|`"auto"`|auto,off,zstd,lz4|Selectsthecompressioncodecforpeertraffic;`auto`negotiatesthebestmutuallysupportedcodec|1.0.0|no|

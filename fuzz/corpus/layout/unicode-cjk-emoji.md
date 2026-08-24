@@ -1,0 +1,34 @@
+P# Unicode, CJK and Emoji — Übersicht
+
+## Latin with diacritics
+
+Le cœur déçu mais l'âme plutôt naïve — Größenmaßstäbe, straße, œuvre.
+
+## CJK
+
+日本語のテキストは全角文字で構成されています。折り返し計算には
+`unicode-width` が必要です。
+
+中文段落：终端中的宽字符必须占用两个单元格，否则表格会错位。
+
+한국어 문장도 마찬가지로 두 칸을 차지합니다.
+
+| 名前 | 説明 |
+|------|------|
+| 東京 | 首都 |
+| 大阪 | 商業都市 |
+
+## Emoji
+
+Plain emoji: 🚀 🎉 🐛 — combined: 👩‍💻 👨‍👩‍👧‍👦 — flags: 🇩🇪 🇯🇵
+
+- ✅ supported
+- ❌ unsupported
+- ⚠️ partially supported
+
+## Mixed width in code
+
+```text
+ASCII | 日本語 | emoji 🚀
+ruler_1234567890
+```
