@@ -101,6 +101,15 @@ your terminal's own selection handling.
 `max_column_width` caps how much width a single column may claim before the
 remaining width is distributed to the others.
 
+### `toc`
+
+`true` opens the table-of-contents sidebar at startup; `t` toggles it at any
+time. Its width follows the document: as wide as the widest entry needs, but
+never more than 40 columns and never more than a third of the screen, so a
+document of short headings gives the columns it does not need back to the
+text. Entries wider than that are reached with `h`/`l` while the sidebar has
+the focus — see [keybindings.md](keybindings.md).
+
 ### `key_hints`
 
 `true` opens the key hints sidebar on the right-hand edge at startup; `K`

@@ -133,6 +133,7 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
                 selected: (app.mode() == Mode::Toc).then_some(app.toc.selected),
                 current,
                 scroll: app.toc.scroll,
+                h_scroll: app.toc.h_scroll,
                 theme: &app.theme,
                 level: app.color,
                 unicode: app.caps.unicode_box,
@@ -584,8 +585,8 @@ mod tests {
         );
 
         // Too narrow for both: the hints give way, the TOC stays.
-        a.resize(80, 24);
-        let split = areas(&a, Rect::new(0, 0, 80, 24));
+        a.resize(60, 24);
+        let split = areas(&a, Rect::new(0, 0, 60, 24));
         assert!(split.sidebar.width > 0);
         assert_eq!(split.hints.width, 0);
     }

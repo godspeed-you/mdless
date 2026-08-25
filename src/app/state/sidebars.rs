@@ -34,6 +34,9 @@ impl App {
         } else {
             self.toc.open = true;
             self.mode = Mode::Toc;
+            // Opening it shows the left edge of the outline, whatever the
+            // reader had scrolled to before closing it.
+            self.toc.h_scroll = 0;
             if let Some(current) = self.current_section() {
                 if let Some(index) = self.toc.index_of(current) {
                     let height = self.content_height();
@@ -64,7 +67,11 @@ impl App {
     pub(crate) fn hint_context(&self) -> HintContext {
         HintContext {
             mode: self.mode,
-            can_scroll_horizontally: self.tree.max_width() > self.content_width(),
+            can_scroll_horizontally: if self.mode == Mode::Toc {
+                self.toc.max_h_scroll(self.toc_inner_width()) > 0
+            } else {
+                self.tree.max_width() > self.content_width()
+            },
             link_in_view: self.link_in_view(),
             cursor_on_heading: self.cursor_on_heading(),
             near_diagram: self.near_diagram(),
@@ -337,5 +344,40 @@ mod tests {
         assert!(a.tree().to_plain_text().contains("graph LR"));
         a.apply(Action::ToggleMermaidSource);
         assert!(!a.diagrams.shows_source(node));
+    }
+
+    /// With the sidebar focused the arrows steer the sidebar, not the
+    /// document behind it — that is where the reader is looking, and a
+    /// heading too long for `MAX_WIDTH` is only reachable this way.
+    #[test]
+    fn the_arrows_scroll_the_toc_while_it_has_the_focus() {
+        let doc = format!("# {}\n\ntext\n", "heading ".repeat(10));
+        let mut a = app_with(&doc, (120, 24));
+        a.apply(Action::ToggleToc);
+        assert_eq!(a.mode(), Mode::Toc);
+
+        let inner = a.toc_inner_width();
+        assert_eq!(inner, usize::from(crate::app::toc::MAX_WIDTH) - 1);
+        assert!(a.toc.max_h_scroll(inner) > 0, "the heading overflows");
+        assert!(
+            a.hint_context().can_scroll_horizontally,
+            "and the hints say so"
+        );
+
+        a.apply(Action::ScrollRight);
+        assert_eq!(a.toc.h_scroll, 8);
+        assert_eq!(a.h_offset(), 0, "the document stayed put");
+
+        for _ in 0..50 {
+            a.apply(Action::ScrollRight);
+        }
+        assert_eq!(a.toc.h_scroll, a.toc.max_h_scroll(inner));
+
+        // Leaving the sidebar hands the arrows back to the document, and
+        // re-opening it starts at the left edge of the outline again.
+        a.apply(Action::ToggleToc);
+        assert_eq!(a.mode(), Mode::Normal);
+        a.apply(Action::ToggleToc);
+        assert_eq!(a.toc.h_scroll, 0);
     }
 }

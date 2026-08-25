@@ -333,6 +333,10 @@ impl App {
             return;
         }
         self.size = size;
+        // A narrower screen gives the sidebar fewer columns, which can leave
+        // its horizontal offset past the end of the widest entry.
+        let inner = self.toc_inner_width();
+        self.toc.h_scroll = self.toc.h_scroll.min(self.toc.max_h_scroll(inner));
         // The rebuild is deferred to the next `App::prepare_frame`. The event
         // loop drains every queued event before it draws, so dragging a window
         // edge — which delivers a resize event per column — costs one

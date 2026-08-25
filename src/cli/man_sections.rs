@@ -159,7 +159,12 @@ and
 .B k
 move the selection and
 .B Enter
-jumps to that heading.
+jumps to that heading. The sidebar is as wide as its widest entry, up to 40
+columns and never more than a third of the screen;
+.B h
+and
+.B l
+scroll the outline sideways when an entry does not fit.
 .TP
 .B K
 Toggle the key hints sidebar on the right\-hand edge

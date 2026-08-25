@@ -286,6 +286,8 @@ pub(crate) struct TocSidebar<'a> {
     pub(crate) current: Option<usize>,
     /// First visible entry.
     pub(crate) scroll: usize,
+    /// First visible column, for entries wider than the sidebar.
+    pub(crate) h_scroll: usize,
     /// Theme.
     pub(crate) theme: &'a Theme,
     /// Colour level.
@@ -309,11 +311,13 @@ impl TocSidebar<'_> {
                     " "
                 };
                 let prefix = connectors.get(i).cloned().unwrap_or_default();
-                unicode::truncate_with_ellipsis(
-                    &format!("{marker}{prefix}{}", e.text),
-                    width.max(1),
-                    ellipsis(self.unicode),
-                )
+                let row = format!("{marker}{prefix}{}", e.text);
+                let width = width.max(1);
+                // One column past the right edge, so a row that still has
+                // content out there is the one that gets the ellipsis; the
+                // rest of it is reachable by scrolling sideways.
+                let visible = unicode::slice_columns(&row, self.h_scroll, width + 1);
+                unicode::truncate_with_ellipsis(&visible, width, ellipsis(self.unicode))
             })
             .collect()
     }
@@ -635,6 +639,7 @@ mod tests {
             selected: None,
             current: None,
             scroll: 0,
+            h_scroll: 0,
             theme,
             level: ColorLevel::TrueColor,
             unicode: true,
@@ -752,6 +757,28 @@ mod tests {
         assert_eq!(texts[3], "▸│ ├ Basic");
         assert_eq!(texts[4], " │ └ Advanced");
         assert_eq!(texts[5], " └ License");
+    }
+
+    /// A heading too long for the sidebar is reached by scrolling sideways,
+    /// not by widening the sidebar. The ellipsis marks the edge it is scrolled
+    /// towards, and disappears once the end of the text is on screen.
+    #[test]
+    fn toc_scrolls_sideways_past_the_sidebar_width() {
+        let theme = Theme::dark();
+        let entries = toc_entries(&[(0, "Project"), (1, "Configuration reference")]);
+        let mut toc = toc_sidebar(&entries, &theme);
+
+        let texts = toc.texts(12);
+        assert_eq!(texts[1], " └ Configur…", "truncated at the right edge");
+
+        toc.h_scroll = 6;
+        let texts = toc.texts(12);
+        assert_eq!(texts[0], "ct", "short rows simply run out");
+        assert_eq!(texts[1], "figuration …");
+
+        toc.h_scroll = 14;
+        let texts = toc.texts(12);
+        assert_eq!(texts[1], "on reference", "no ellipsis once the end shows");
     }
 
     /// On a terminal without Unicode box drawing every glyph the chrome emits

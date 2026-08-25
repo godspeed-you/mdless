@@ -7,8 +7,16 @@
 
 use crate::document::{Document, SectionId, TocEntry};
 
-/// Default sidebar width in columns, capped to a third of the screen.
-pub(crate) const DEFAULT_WIDTH: u16 = 28;
+/// Widest the sidebar may grow, however long the headings are.
+///
+/// The same number as [`crate::app::hints::MIN_DOCUMENT_WIDTH`], and for the
+/// same reason: 40 columns is the narrowest thing this program still calls
+/// readable, so it is also the most a navigation aid may take from the text.
+/// A heading that does not fit is scrolled to, not accommodated.
+pub(crate) const MAX_WIDTH: u16 = 40;
+
+/// Narrowest the sidebar may shrink on a screen with room for it.
+pub(crate) const MIN_WIDTH: u16 = 12;
 
 /// Sidebar visibility, selection and scroll offset.
 #[derive(Debug, Clone, Default)]
@@ -19,6 +27,8 @@ pub(crate) struct TocState {
     pub(crate) selected: usize,
     /// Index of the first drawn entry.
     pub(crate) scroll: usize,
+    /// First visible column, for headings wider than [`MAX_WIDTH`].
+    pub(crate) h_scroll: usize,
     /// Entries in document order.
     pub(crate) entries: Vec<TocEntry>,
 }
@@ -59,6 +69,7 @@ impl TocState {
             open: false,
             selected: 0,
             scroll: 0,
+            h_scroll: 0,
             entries: entries(doc),
         }
     }
@@ -73,11 +84,45 @@ impl TocState {
         self.entries.is_empty()
     }
 
-    /// Sidebar width for a screen of `total` columns.
+    /// Widest entry row in columns, borders excluded.
+    ///
+    /// One column for the current-section marker, two per nesting level for
+    /// the tree connectors, and the heading itself. Both the marker and the
+    /// connectors are one cell wide in either glyph set, so this does not
+    /// depend on whether the terminal draws them in Unicode or ASCII.
+    pub(crate) fn content_width(&self) -> usize {
+        self.entries
+            .iter()
+            .map(|e| 1 + 2 * e.depth + crate::util::unicode::width(&e.text))
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Sidebar width for a screen of `total` columns, including the border.
+    ///
+    /// The sidebar is as wide as its widest entry and no wider, so a document
+    /// of short headings gives the columns it does not need back to the text.
+    /// Two ceilings bound it: [`MAX_WIDTH`], and a third of the screen so it
+    /// can never dominate a narrow terminal. Whatever the ceilings cut off is
+    /// reachable by scrolling the sidebar sideways.
     pub(crate) fn width(&self, total: u16) -> u16 {
-        DEFAULT_WIDTH
+        let wanted = u16::try_from(self.content_width().saturating_add(1)).unwrap_or(u16::MAX);
+        wanted
+            .min(MAX_WIDTH)
             .min(total / 3)
-            .max(if total >= 12 { 12 } else { total })
+            .max(if total >= MIN_WIDTH { MIN_WIDTH } else { total })
+            .min(total)
+    }
+
+    /// Columns the entries extend past an inner width of `inner`.
+    pub(crate) fn max_h_scroll(&self, inner: usize) -> usize {
+        self.content_width().saturating_sub(inner)
+    }
+
+    /// Scroll the entries sideways by `delta` columns, clamped.
+    pub(crate) fn scroll_h(&mut self, delta: isize, inner: usize) {
+        let max = self.max_h_scroll(inner) as isize;
+        self.h_scroll = (self.h_scroll as isize + delta).clamp(0, max.max(0)) as usize;
     }
 
     /// The section the selected entry refers to.
@@ -173,11 +218,44 @@ mod tests {
     }
 
     #[test]
-    fn width_is_bounded() {
+    fn width_follows_the_widest_entry_within_its_ceilings() {
         let doc = parse(DOC);
         let toc = TocState::new(&doc);
-        assert_eq!(toc.width(120), DEFAULT_WIDTH);
-        assert_eq!(toc.width(60), 20);
-        assert!(toc.width(10) <= 10);
+        // "  └ Three" — marker, two levels of connector, five letters.
+        assert_eq!(toc.content_width(), 10);
+        // Short headings do not claim the full ceiling: content plus border,
+        // lifted to the floor a usable sidebar needs.
+        assert_eq!(toc.width(120), MIN_WIDTH);
+
+        let long = parse(&format!("# {}\n\ntext\n", "a".repeat(80)));
+        let wide = TocState::new(&long);
+        assert_eq!(wide.width(200), MAX_WIDTH, "capped by MAX_WIDTH");
+        assert_eq!(wide.width(60), 20, "capped by a third of the screen");
+        assert_eq!(wide.width(30), MIN_WIDTH, "the floor beats a small third");
+        assert!(wide.width(10) <= 10, "never wider than the screen itself");
+    }
+
+    #[test]
+    fn horizontal_scrolling_is_clamped_to_the_overflow() {
+        let long = parse(&format!("# {}\n\ntext\n", "a".repeat(80)));
+        let mut toc = TocState::new(&long);
+        // 1 marker + 80 letters, shown through the 39 inner columns of a
+        // sidebar at MAX_WIDTH.
+        assert_eq!(toc.content_width(), 81);
+        assert_eq!(toc.max_h_scroll(39), 42);
+
+        toc.scroll_h(8, 39);
+        assert_eq!(toc.h_scroll, 8);
+        toc.scroll_h(999, 39);
+        assert_eq!(toc.h_scroll, 42, "never past the last column of the text");
+        toc.scroll_h(-999, 39);
+        assert_eq!(toc.h_scroll, 0, "and never before the first");
+
+        // Nothing to scroll when everything already fits.
+        let doc = parse(DOC);
+        let mut fits = TocState::new(&doc);
+        assert_eq!(fits.max_h_scroll(39), 0);
+        fits.scroll_h(8, 39);
+        assert_eq!(fits.h_scroll, 0);
     }
 }

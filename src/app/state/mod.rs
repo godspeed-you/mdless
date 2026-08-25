@@ -353,6 +353,12 @@ impl App {
         (toc, hints)
     }
 
+    /// Columns the TOC sidebar has for its entries: its width less the
+    /// border it draws on its right edge. Zero when the sidebar is closed.
+    pub(crate) fn toc_inner_width(&self) -> usize {
+        usize::from(self.sidebar_widths().0.saturating_sub(1))
+    }
+
     /// Columns left over for the document once both sidebars took theirs.
     ///
     /// This is the space the document is centred in, not necessarily the

@@ -23,6 +23,16 @@ at the top for work that has not shipped yet.
   narrows. Set `max_width = 0` and `center = false` (or pass `--max-width 0
   --no-center`) for the previous behaviour.
 
+- **The table of contents sizes itself to its headings.** The sidebar was a
+  flat 28 columns wide whatever it held, so headings of any length were cut
+  off with an ellipsis and there was no way to see the rest of them. It is now
+  as wide as its widest entry needs, bounded by 40 columns — the same number
+  as the minimum document width — and by a third of the screen. Documents with
+  short headings get a narrower sidebar and hand the columns back to the text.
+  What still does not fit scrolls: while the sidebar has the focus, `h`/`l`
+  (`←`/`→`) move the outline sideways rather than the document, and the key
+  hints offer them only while something is cut off.
+
 ## [1.0.0] - 2026-08-24
 
 First stable release.

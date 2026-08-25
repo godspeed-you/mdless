@@ -16,7 +16,7 @@ Keys follow `less` and Vim conventions where practical.
 | `PgUp`, `b` | `page_up` | page up |
 | `Ctrl-D` | `half_page_down` | half page down |
 | `Ctrl-U` | `half_page_up` | half page up |
-| `h`, `←` | `scroll_left` | scroll left (wide tables, unwrapped code) |
+| `h`, `←` | `scroll_left` | scroll left (wide tables, unwrapped code, the TOC) |
 | `l`, `→` | `scroll_right` | scroll right |
 | `g` | `top` | top of document |
 | `G` | `bottom` | bottom of document |
@@ -86,6 +86,13 @@ Inside the TOC sidebar, `j`/`k` move the selection and `Enter` jumps to the
 heading; the section currently shown in the document is marked. A jump keeps
 the focus in the sidebar, so `j`/`k` go on walking the outline and further
 jumps need no reopening; `Esc` or `t` hands the keys back to the document.
+
+The sidebar is as wide as its widest entry, up to 40 columns and never more
+than a third of the screen. A heading longer than that is not truncated for
+good: while the sidebar has the focus, `h`/`l` (or `←`/`→`) scroll the outline
+sideways instead of the document, and the key hints offer them only while
+something is actually cut off. Closing and reopening the sidebar returns it to
+the left edge of the outline.
 
 The key hints sidebar (`K`) is drawn on the right-hand edge and lists, grouped
 and labelled, the commands that are available *right now* — it is not a static

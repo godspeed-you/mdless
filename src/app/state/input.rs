@@ -172,8 +172,16 @@ impl App {
             },
             Action::HalfPageDown => self.scroll_by((height / 2).max(1) as isize),
             Action::HalfPageUp => self.scroll_by(-((height / 2).max(1) as isize)),
-            Action::ScrollLeft => self.scroll_h(-8),
-            Action::ScrollRight => self.scroll_h(8),
+            // In the sidebar the arrows belong to the sidebar: the reader is
+            // looking at a heading that does not fit, not at the document.
+            Action::ScrollLeft => match self.mode {
+                Mode::Toc => self.toc.scroll_h(-8, self.toc_inner_width()),
+                _ => self.scroll_h(-8),
+            },
+            Action::ScrollRight => match self.mode {
+                Mode::Toc => self.toc.scroll_h(8, self.toc_inner_width()),
+                _ => self.scroll_h(8),
+            },
             Action::Top => match self.mode {
                 Mode::Toc => self.toc.select(0, height),
                 Mode::Help => self.help_scroll = 0,
