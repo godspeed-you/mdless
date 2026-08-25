@@ -63,6 +63,29 @@ impl App {
         }
     }
 
+    // -- mouse ------------------------------------------------------------
+
+    /// Toggle mouse reporting (`m`).
+    ///
+    /// While diple asks the terminal for mouse events, the terminal cannot
+    /// use the mouse for its own text selection. Turning reporting off hands
+    /// it back: dragging selects and copies exactly as it does in any other
+    /// program, at the cost of the wheel and of clicking the sidebars until
+    /// it is turned back on. The event loop mirrors the flag onto the
+    /// terminal; nothing here writes to it.
+    pub(super) fn toggle_mouse(&mut self) {
+        if !self.caps.mouse {
+            self.set_message("terminal does not report mouse events");
+            return;
+        }
+        self.mouse_on = !self.mouse_on;
+        self.set_message(if self.mouse_on {
+            "mouse on: wheel scrolls, clicks select"
+        } else {
+            "mouse off: drag to select text"
+        });
+    }
+
     /// The context the hints sidebar selects its rows from.
     pub(crate) fn hint_context(&self) -> HintContext {
         HintContext {
@@ -76,6 +99,8 @@ impl App {
             cursor_on_heading: self.cursor_on_heading(),
             near_diagram: self.near_diagram(),
             search_active: self.search.has_matches(),
+            mouse_available: self.caps.mouse,
+            mouse_on: self.mouse_on,
         }
     }
 
@@ -379,5 +404,39 @@ mod tests {
         assert_eq!(a.mode(), Mode::Normal);
         a.apply(Action::ToggleToc);
         assert_eq!(a.toc.h_scroll, 0);
+    }
+
+    /// Mouse reporting and the terminal's own text selection cannot both have
+    /// the mouse, so the reader can hand it back. The hints offer the key
+    /// only where the terminal reports mouse events at all.
+    #[test]
+    fn the_mouse_can_be_handed_back_to_the_terminal() {
+        let mut a = with_mouse(app());
+        assert!(a.mouse_on());
+        let mouse_row = |a: &App| {
+            a.hint_groups()
+                .into_iter()
+                .flat_map(|g| g.rows)
+                .find(|r| r.action == Action::ToggleMouse)
+                .map(|r| r.label)
+        };
+        assert_eq!(mouse_row(&a).as_deref(), Some("select text"));
+
+        a.apply(Action::ToggleMouse);
+        assert!(!a.mouse_on(), "the terminal has the mouse now");
+        assert_eq!(mouse_row(&a).as_deref(), Some("mouse back on"));
+        a.apply(Action::ToggleMouse);
+        assert!(a.mouse_on());
+
+        // A terminal that reports nothing has nothing to hand back.
+        let mut without = app();
+        assert!(!without.caps.mouse && !without.mouse_on());
+        assert_eq!(mouse_row(&without), None);
+        without.apply(Action::ToggleMouse);
+        assert!(!without.mouse_on());
+        assert_eq!(
+            without.message(),
+            Some("terminal does not report mouse events")
+        );
     }
 }

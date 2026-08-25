@@ -77,6 +77,7 @@ links are also emitted as native terminal hyperlinks.
 |---|---|---|
 | `t` | `toggle_toc` | toggle the table-of-contents sidebar |
 | `K` | `toggle_key_hints` | toggle the key hints sidebar |
+| `m` | `toggle_mouse` | toggle mouse reporting (off: select text with the mouse) |
 | `s` | `toggle_mermaid_source` | toggle Mermaid source view for the diagram at the cursor |
 | `?`, `F1` | `help` | show the help overlay |
 | `Esc` | `cancel` | close the overlay, prompt or sidebar |

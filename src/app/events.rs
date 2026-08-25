@@ -410,8 +410,18 @@ pub fn run(app: &mut App) -> io::Result<()> {
     }
 
     let mut previous_images: Vec<PlacedImage> = Vec::new();
+    // What the terminal was last told about mouse reporting. `App` only holds
+    // the flag; the escape sequence is written here, where the terminal is
+    // owned and no frame is half-drawn.
+    let mut mouse_on = app.mouse_on();
     let mut redraw = true;
     loop {
+        if app.mouse_on() != mouse_on {
+            mouse_on = app.mouse_on();
+            // Best effort: a terminal that refuses the sequence simply keeps
+            // reporting (or not), and the flag still says what diple reads.
+            let _ = crate::terminal::lifecycle::set_mouse_reporting(mouse_on);
+        }
         if redraw {
             // Syntax highlighting for the code about to be drawn and the
             // search highlighting are both applied here, in the same frame

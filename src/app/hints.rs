@@ -62,6 +62,12 @@ pub(crate) struct HintContext {
     pub(crate) near_diagram: bool,
     /// A search is active and has matches.
     pub(crate) search_active: bool,
+    /// The terminal reports mouse events at all, so the toggle means
+    /// something.
+    pub(crate) mouse_available: bool,
+    /// diple is currently asking for those events, so the terminal cannot
+    /// select text with the mouse.
+    pub(crate) mouse_on: bool,
 }
 
 impl Default for HintContext {
@@ -73,6 +79,8 @@ impl Default for HintContext {
             cursor_on_heading: false,
             near_diagram: false,
             search_active: false,
+            mouse_available: false,
+            mouse_on: false,
         }
     }
 }
@@ -264,6 +272,23 @@ fn normal_groups(ctx: &HintContext, keys: &KeyMap) -> Vec<HintGroup> {
         None
     };
 
+    let mut view_rows = vec![
+        row(keys, Action::ToggleToc, "contents"),
+        row(keys, Action::ToggleKeyHints, "hide hints"),
+    ];
+    // Only worth offering where the terminal reports mouse events at all, and
+    // the label says what the key gets you rather than what it sets.
+    if ctx.mouse_available {
+        let label = if ctx.mouse_on {
+            "select text"
+        } else {
+            "mouse back on"
+        };
+        view_rows.push(row(keys, Action::ToggleMouse, label));
+    }
+    view_rows.push(row(keys, Action::Help, "help"));
+    view_rows.push(row(keys, Action::Quit, "quit"));
+
     [
         group("Move", 0, move_rows),
         group(
@@ -288,16 +313,7 @@ fn normal_groups(ctx: &HintContext, keys: &KeyMap) -> Vec<HintGroup> {
         group("Search", 4, search_rows),
         links,
         diagram,
-        group(
-            "View",
-            1,
-            vec![
-                row(keys, Action::ToggleToc, "contents"),
-                row(keys, Action::ToggleKeyHints, "hide hints"),
-                row(keys, Action::Help, "help"),
-                row(keys, Action::Quit, "quit"),
-            ],
-        ),
+        group("View", 1, view_rows),
     ]
     .into_iter()
     .flatten()

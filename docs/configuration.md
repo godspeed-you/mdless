@@ -86,8 +86,16 @@ what `NO_COLOR` does. `always` forces color even when output is not a terminal.
 ### `mouse`
 
 Mouse wheel scrolling, clicking a heading to fold it, and clicking a link to
-select it. Disable with `mouse = false` or `--no-mouse` if it interferes with
-your terminal's own selection handling.
+select it. diple asks the terminal for button presses and releases only
+(modes `1000` and `1006`), never for drag or motion reporting, because those
+are what stop a terminal from selecting text with the mouse.
+
+Selecting still competes with reporting: while diple is listening, most
+terminals need `Shift` held to select, and some will not select at all. `m`
+(`toggle_mouse`) hands the mouse back at any time — dragging then selects and
+copies exactly as it does elsewhere, and the wheel and the clickable sidebars
+return when you press `m` again. `mouse = false` or `--no-mouse` starts that
+way permanently.
 
 ### `[table] mode`
 

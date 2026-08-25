@@ -164,6 +164,7 @@ pub struct App {
     painted_query: String,
     selected_link: Option<LinkId>,
     mode: Mode,
+    mouse_on: bool,
     message: Option<String>,
     pending: String,
     help_scroll: usize,
@@ -236,6 +237,7 @@ impl App {
             painted_query: String::new(),
             selected_link: None,
             mode: Mode::Normal,
+            mouse_on: false, // set below, once `config` and `caps` are owned
             message: None,
             pending: String::new(),
             help_scroll: 0,
@@ -244,6 +246,7 @@ impl App {
             quit: false,
             children: Vec::new(),
         };
+        app.mouse_on = app.config.mouse && app.caps.mouse;
         app.ensure_layout();
         app
     }
@@ -309,6 +312,15 @@ impl App {
     /// Whether the app was asked to quit.
     pub(crate) fn should_quit(&self) -> bool {
         self.quit
+    }
+
+    /// Whether diple is currently asking the terminal for mouse events.
+    ///
+    /// The configured value at startup, and whatever [`Action::ToggleMouse`]
+    /// last set afterwards. The event loop mirrors it onto the terminal, so
+    /// this is also what the terminal is doing.
+    pub(crate) fn mouse_on(&self) -> bool {
+        self.mouse_on
     }
 
     /// Whether OSC 8 hyperlinks may be emitted.
@@ -560,6 +572,15 @@ pub(super) mod test_support {
         "## Beta\n\nBeta body text with needle again.\n\n",
         "See [Alpha](#alpha) for details.\n",
     );
+
+    /// The detected capabilities in tests report no mouse, so a test that
+    /// wants mouse events must say so — and, like the startup path, start
+    /// with reporting on.
+    pub(super) fn with_mouse(mut app: App) -> App {
+        app.caps.mouse = true;
+        app.mouse_on = true;
+        app
+    }
 
     pub(super) fn app_with(src: &str, size: (u16, u16)) -> App {
         testing::app_sized(src, size)

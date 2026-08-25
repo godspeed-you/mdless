@@ -116,6 +116,7 @@ text and exits — so `diple README.md | head -20` and CI usage behave sensibly.
 | `Tab` `Shift-Tab` `o` | select links, open the selected one |
 | `t` | toggle the table of contents |
 | `K` | toggle the key hints sidebar |
+| `m` | hand the mouse back to the terminal, to select text with it |
 | `s` | toggle Mermaid source view |
 | `?` | help |
 | `q` | quit |

@@ -166,6 +166,13 @@ and
 .B l
 scroll the outline sideways when an entry does not fit.
 .TP
+.B m
+Toggle mouse reporting (\fBtoggle_mouse\fR). diple asks the terminal for
+button presses only, never for drag or motion reporting, but while it is
+listening the terminal cannot use the mouse to select text. Turning reporting
+off hands it back: dragging selects and copies as usual, and the wheel and the
+clickable sidebars return when reporting is turned back on.
+.TP
 .B K
 Toggle the key hints sidebar on the right\-hand edge
 (\fBtoggle_key_hints\fR). It lists the commands available in the current mode

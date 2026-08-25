@@ -33,6 +33,19 @@ at the top for work that has not shipped yet.
   (`←`/`→`) move the outline sideways rather than the document, and the key
   hints offer them only while something is cut off.
 
+- **The mouse can select text in the document again.** diple asked the
+  terminal for the whole of `EnableMouseCapture`, which includes drag
+  reporting (`1002`) and any-motion reporting (`1003`) — events it never
+  handled and threw away, but which cost the terminal its own text selection,
+  because a drag forwarded to diple is a drag the terminal cannot select with.
+  It now asks only for button presses and releases in SGR encoding (`1000`
+  and `1006`), which is exactly what the wheel and the clickable sidebars
+  need. Where a terminal still reserves plain dragging for the application,
+  `m` (`toggle_mouse`) hands the mouse back entirely: dragging selects and
+  copies as it does in any other program, and `m` again restores the wheel and
+  the clickable sidebars. The key hints show it while the terminal reports a
+  mouse at all.
+
 ## [1.0.0] - 2026-08-24
 
 First stable release.

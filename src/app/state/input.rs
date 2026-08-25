@@ -200,6 +200,7 @@ impl App {
             Action::PreviousHeadingSameLevel => self.jump_heading_same_level(false),
             Action::ToggleToc => self.toggle_toc(),
             Action::ToggleKeyHints => self.toggle_key_hints(),
+            Action::ToggleMouse => self.toggle_mouse(),
             Action::Activate => self.activate(),
             Action::OpenLink => self.open_selected_link(),
             Action::NextLink => self.cycle_link(true),
@@ -262,7 +263,7 @@ impl App {
     /// terminal supports it.
     pub(crate) fn handle_mouse(&mut self, event: &crossterm::event::MouseEvent) {
         use crossterm::event::MouseEventKind;
-        if !self.config.mouse || !self.caps.mouse {
+        if !self.mouse_on {
             return;
         }
         match event.kind {
@@ -403,8 +404,7 @@ mod tests {
 
     #[test]
     fn clicking_a_hint_row_runs_its_action() {
-        let mut a = app_with(DOC, (120, 24));
-        a.caps.mouse = true; // the default capabilities have no mouse
+        let mut a = with_mouse(app_with(DOC, (120, 24)));
         a.apply(Action::ToggleKeyHints);
         let (_, hints) = a.sidebar_widths();
         assert!(hints > 0);
@@ -484,8 +484,7 @@ mod tests {
     #[test]
     fn mouse_wheel_scrolls_when_enabled() {
         use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
-        let mut a = app();
-        a.caps.mouse = true;
+        let mut a = with_mouse(app());
         let wheel = MouseEvent {
             kind: MouseEventKind::ScrollDown,
             column: 1,
@@ -494,11 +493,16 @@ mod tests {
         };
         a.handle_mouse(&wheel);
         assert_eq!(a.top_line(), 3);
-        a.config.mouse = false;
-        a.handle_mouse(&wheel);
-        assert_eq!(a.top_line(), 3, "disabled mouse is ignored");
 
-        a.config.mouse = true;
+        // Reporting off: the events belong to the terminal, which is what
+        // makes selecting text with the mouse work again.
+        a.apply(Action::ToggleMouse);
+        assert!(!a.mouse_on());
+        a.handle_mouse(&wheel);
+        assert_eq!(a.top_line(), 3, "the wheel is the terminal's now");
+
+        a.apply(Action::ToggleMouse);
+        assert!(a.mouse_on());
         a.apply(Action::Top);
         let before = a.tree().len();
         let heading_row = a
@@ -531,7 +535,7 @@ mod tests {
             .size((100, 24))
             .config(cfg)
             .build();
-        a.caps.mouse = true;
+        a = with_mouse(a);
         let margin = a.content_margin();
         assert_eq!(margin, 20);
 

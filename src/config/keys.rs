@@ -272,6 +272,7 @@ const DEFAULT_BINDINGS: &[(Action, &[&str])] = &[
     (Action::PreviousHeadingSameLevel, &["{"]),
     (Action::ToggleToc, &["t"]),
     (Action::ToggleKeyHints, &["K"]),
+    (Action::ToggleMouse, &["m"]),
     (Action::Activate, &["enter"]),
     (Action::OpenLink, &["o"]),
     (Action::NextLink, &["tab"]),

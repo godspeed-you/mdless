@@ -49,6 +49,9 @@ pub enum Action {
     ToggleToc,
     /// Toggle the key hints sidebar (`K`).
     ToggleKeyHints,
+    /// Toggle mouse reporting, handing the mouse back to the terminal so
+    /// text can be selected with it (`m`).
+    ToggleMouse,
     /// Activate selected heading/link (`Enter`).
     Activate,
     /// Open the selected link (`o`).
@@ -97,6 +100,7 @@ impl Action {
         Action::PreviousHeadingSameLevel,
         Action::ToggleToc,
         Action::ToggleKeyHints,
+        Action::ToggleMouse,
         Action::Activate,
         Action::OpenLink,
         Action::NextLink,
@@ -134,6 +138,7 @@ impl Action {
             Action::PreviousHeadingSameLevel => "previous_heading_same_level",
             Action::ToggleToc => "toggle_toc",
             Action::ToggleKeyHints => "toggle_key_hints",
+            Action::ToggleMouse => "toggle_mouse",
             Action::Activate => "activate",
             Action::OpenLink => "open_link",
             Action::NextLink => "next_link",
@@ -177,6 +182,7 @@ impl Action {
             Action::PreviousHeadingSameLevel => "previous heading (same or higher level)",
             Action::ToggleToc => "toggle table of contents",
             Action::ToggleKeyHints => "toggle key hints sidebar",
+            Action::ToggleMouse => "toggle mouse (off: select text)",
             Action::Activate => "activate heading/link",
             Action::OpenLink => "open selected link",
             Action::NextLink => "select next link",

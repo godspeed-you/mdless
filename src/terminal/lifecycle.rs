@@ -15,7 +15,6 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Once;
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -25,8 +24,19 @@ use crossterm::terminal::{
 const STATE_RAW: u8 = 1 << 0;
 /// Bit: the alternate screen is active.
 const STATE_ALT: u8 = 1 << 1;
-/// Bit: mouse capture is active.
+/// Bit: mouse reporting is active.
 const STATE_MOUSE: u8 = 1 << 2;
+
+/// Turn on exactly the mouse reporting diple reads: `1000` reports button
+/// presses and releases, `1006` asks for them in SGR encoding so columns past
+/// 223 still arrive. Deliberately *not* `1002` or `1003` — drag and motion
+/// tracking, which diple has no use for and which cost the terminal its own
+/// text selection, because a drag it forwards to us is a drag it cannot use
+/// to select with.
+const MOUSE_ON: &[u8] = b"\x1b[?1000h\x1b[?1006h";
+
+/// Turn it off again, in reverse order.
+const MOUSE_OFF: &[u8] = b"\x1b[?1006l\x1b[?1000l";
 /// Bit: the cursor is hidden.
 const STATE_CURSOR_HIDDEN: u8 = 1 << 3;
 /// Bit: keyboard enhancement flags were pushed.
@@ -117,7 +127,7 @@ impl TerminalGuard {
             set_bits(STATE_ALT);
         }
         if options.mouse {
-            execute!(out, EnableMouseCapture)?;
+            out.write_all(MOUSE_ON)?;
             set_bits(STATE_MOUSE);
         }
         if options.hide_cursor {
@@ -147,6 +157,26 @@ impl TerminalGuard {
         self.restored = true;
         restore_terminal()
     }
+}
+
+/// Turn mouse reporting on or off while the UI is running.
+///
+/// The reader toggles it to hand the mouse back to the terminal: with
+/// reporting off, dragging selects text the way it does in any other program,
+/// and diple stops seeing clicks and the wheel until it is turned back on.
+/// The state word tracks it either way, so whichever state the terminal is
+/// left in is the state restoration undoes.
+pub fn set_mouse_reporting(on: bool) -> Result<(), TerminalError> {
+    let mut out = io::stdout();
+    if on {
+        out.write_all(MOUSE_ON)?;
+        set_bits(STATE_MOUSE);
+    } else {
+        out.write_all(MOUSE_OFF)?;
+        clear_bits(STATE_MOUSE);
+    }
+    out.flush()?;
+    Ok(())
 }
 
 impl Drop for TerminalGuard {
@@ -185,7 +215,7 @@ pub fn restore_terminal() -> Result<(), TerminalError> {
         step(execute!(out, Show));
     }
     if state & STATE_MOUSE != 0 {
-        step(execute!(out, DisableMouseCapture));
+        step(out.write_all(MOUSE_OFF));
     }
     if state & STATE_ALT != 0 {
         step(execute!(out, LeaveAlternateScreen));
@@ -225,7 +255,7 @@ fn owed_sequences(state: u8) -> [&'static [u8]; 5] {
             NONE
         },
         if state & STATE_MOUSE != 0 {
-            b"\x1b[?1006l\x1b[?1015l\x1b[?1003l\x1b[?1002l\x1b[?1000l"
+            MOUSE_OFF
         } else {
             NONE
         },
@@ -443,6 +473,10 @@ fn set_bits(bits: u8) {
     STATE.fetch_or(bits, Ordering::SeqCst);
 }
 
+fn clear_bits(bits: u8) {
+    STATE.fetch_and(!bits, Ordering::SeqCst);
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
@@ -523,10 +557,11 @@ mod tests {
     /// The signal handler cannot call `execute!`, so it writes the escape
     /// sequences literally. If crossterm ever changes one of them, the safe
     /// path would change with it and the handler would silently keep sending
-    /// the old bytes — this pins the two together.
+    /// the old bytes — this pins the two together. Mouse reporting is ours
+    /// rather than crossterm's, so it is pinned to the constants instead.
     #[test]
     fn sequences_match_crossterm() {
-        use crossterm::event::{DisableMouseCapture, PopKeyboardEnhancementFlags};
+        use crossterm::event::PopKeyboardEnhancementFlags;
         use crossterm::Command;
 
         fn ansi_of(command: &impl Command) -> String {
@@ -540,9 +575,30 @@ mod tests {
         );
         assert_eq!(all[0], ansi_of(&PopKeyboardEnhancementFlags).as_bytes());
         assert_eq!(all[1], ansi_of(&Show).as_bytes());
-        assert_eq!(all[2], ansi_of(&DisableMouseCapture).as_bytes());
+        assert_eq!(all[2], MOUSE_OFF, "the signal path turns off what we set");
         assert_eq!(all[3], ansi_of(&LeaveAlternateScreen).as_bytes());
         assert_eq!(all[4], b"\x1b[0m", "the SGR reset is unconditional");
+    }
+
+    /// Every mode turned on must be turned off again, and diple must ask for
+    /// no more than it reads: `1002` and `1003` report drags and motion, which
+    /// nothing here handles and which cost the terminal its text selection.
+    #[test]
+    fn mouse_reporting_asks_for_press_and_release_only() {
+        let on = String::from_utf8(MOUSE_ON.to_vec()).expect("utf-8");
+        let off = String::from_utf8(MOUSE_OFF.to_vec()).expect("utf-8");
+        let modes: Vec<&str> = on
+            .split("\x1b[?")
+            .skip(1)
+            .map(|m| m.trim_end_matches('h'))
+            .collect();
+        assert_eq!(modes, vec!["1000", "1006"]);
+        for mode in modes {
+            assert!(off.contains(&format!("\x1b[?{mode}l")), "{mode} stays on");
+        }
+        for unwanted in ["1002", "1003"] {
+            assert!(!on.contains(unwanted), "{unwanted} kills text selection");
+        }
     }
 
     /// Every bit is optional: a terminal is only given back what it was
