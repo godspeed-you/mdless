@@ -149,8 +149,8 @@ theme = "auto"
 mouse = true
 toc = false
 key_hints = false
-max_width = 0
-center = false
+max_width = 160
+center = true
 
 [table]
 mode = "auto"

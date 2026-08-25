@@ -28,14 +28,17 @@ pub struct Config {
     /// Maximum line width in columns before wrapping (`0`: the full width).
     ///
     /// Long lines are hard to read; a limit keeps the measure comfortable on
-    /// a wide terminal. The document is laid out at
-    /// `min(max_width, available)`, so the limit never widens anything.
+    /// a wide terminal, which is why the default is `160` rather than `0`.
+    /// The document is laid out at `min(max_width, available)`, so the limit
+    /// never widens anything and does nothing on a narrower terminal.
     pub max_width: u16,
     /// Centre the document in the columns the sidebars leave over.
     ///
     /// Only the document moves: the TOC keeps the left edge and the key hints
     /// the right one, so with a `max_width` narrower than the terminal the
-    /// sidebars sit outside the text rather than beside it.
+    /// sidebars sit outside the text rather than beside it. On by default, so
+    /// the columns the default `max_width` gives up become two margins rather
+    /// than a pile of empty space on the right.
     pub center: bool,
     /// Table rendering options.
     pub table: TableConfig,
@@ -59,8 +62,8 @@ impl Default for Config {
             key_hints: false,
             line_numbers: false,
             wrap: true,
-            max_width: 0,
-            center: false,
+            max_width: 160,
+            center: true,
             table: TableConfig::default(),
             code: CodeConfig::default(),
             links: LinksConfig::default(),

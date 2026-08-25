@@ -596,6 +596,7 @@ mod tests {
     fn max_width_caps_the_layout_width_and_center_splits_the_rest() {
         let mut cfg = crate::config::Config {
             max_width: 60,
+            center: false,
             ..crate::config::Config::default()
         };
         let mut a = testing::AppBuilder::new(DOC)
@@ -604,7 +605,7 @@ mod tests {
             .build();
         assert_eq!(a.content_available(), 100);
         assert_eq!(a.content_width(), 60);
-        // Off by default: the document keeps the left edge.
+        // Turned off: the document keeps the left edge.
         assert_eq!(a.content_margin(), 0);
 
         cfg.center = true;

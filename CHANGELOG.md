@@ -11,6 +11,18 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The line width limit and centring are now on by default.** `max_width` and
+  `center` shipped as `0` and `false`, so a fresh installation still laid every
+  document out across the full terminal — the very reading problem the two
+  settings were added to solve, left switched off. They now default to
+  `max_width = 160` and `center = true`, so a wide terminal gets a comfortable
+  measure in the middle of the screen without any configuration. Nothing
+  changes on a terminal of 160 columns or fewer, since the limit only ever
+  narrows. Set `max_width = 0` and `center = false` (or pass `--max-width 0
+  --no-center`) for the previous behaviour.
+
 ## [1.0.0] - 2026-08-24
 
 First stable release.

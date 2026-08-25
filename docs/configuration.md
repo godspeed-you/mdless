@@ -35,8 +35,8 @@ toc = false             # start with the table-of-contents sidebar open
 key_hints = false       # start with the key hints sidebar open
 line_numbers = false    # document line numbers
 wrap = true             # reflow paragraphs to the terminal width
-max_width = 0           # cap the line width in columns; 0 = the full width
-center = false          # centre the document between the sidebars
+max_width = 160         # cap the line width in columns; 0 = the full width
+center = true           # centre the document between the sidebars
 
 [table]
 mode = "auto"           # auto | wrap | scroll | compact
@@ -114,13 +114,18 @@ sidebars fits.
 ### `max_width` and `center`
 
 `max_width` caps the line width in columns before wrapping; `0` keeps the full
-available width. Both `max_width` and `--width` only ever narrow, so a value
-wider than the terminal changes nothing.
+available width. It defaults to `160`, because a line much longer than that is
+tiring to read on a wide terminal. Both `max_width` and `--width` only ever
+narrow, so a value wider than the terminal changes nothing — on a terminal of
+160 columns or fewer the default limit does nothing at all.
 
-`center = true` splits the columns the limit leaves over into two equal
-margins around the document — with `max_width = 140` on a 200-column terminal
-the text sits in the middle 140 columns with 30 columns of air on each side
-(an odd remainder gives the extra column to the right).
+`center = true` — the default — splits the columns the limit leaves over into
+two equal margins around the document: with `max_width = 140` on a 200-column
+terminal the text sits in the middle 140 columns with 30 columns of air on
+each side (an odd remainder gives the extra column to the right).
+
+Set `max_width = 0` for the full width, and `center = false` to keep the
+document against the left edge.
 
 Only the document is centred. The table of contents keeps the left edge and
 the key hints sidebar the right one, so with a narrow `max_width` both sit
