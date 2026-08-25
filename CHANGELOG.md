@@ -11,6 +11,11 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-25
+
+A command line for changing settings while reading, two themes, and the
+reading defaults the width limit was added for.
+
 ### Added
 
 - **A `:` command line for changing settings while reading.** Every key the
