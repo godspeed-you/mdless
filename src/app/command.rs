@@ -291,7 +291,18 @@ mod tests {
     fn values_complete_once_a_separator_is_there() {
         let c = complete("theme ");
         assert_eq!(c.line, "theme = ");
-        assert_eq!(c.candidates, vec!["auto", "dark", "light", "crt"]);
+        assert_eq!(
+            c.candidates,
+            vec!["auto", "dark", "light", "crt", "cyberpunk"]
+        );
+
+        // Two themes start with `c`, so completion stops at what they share.
+        let c = complete("theme = c");
+        assert_eq!(c.line, "theme = c");
+        assert_eq!(c.candidates, vec!["crt", "cyberpunk"]);
+        let c = complete("theme = cy");
+        assert_eq!(c.line, "theme = cyberpunk");
+        assert!(c.candidates.is_empty());
 
         let c = complete("theme = d");
         assert_eq!(c.line, "theme = dark");

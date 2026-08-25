@@ -28,7 +28,7 @@ Environment overrides: `DIPLE_CONFIG`, `DIPLE_THEME`, `DIPLE_MERMAID`.
 ## Complete example with defaults
 
 ```toml
-theme = "auto"          # auto | dark | light | crt | <name>
+theme = "auto"          # auto | dark | light | crt | cyberpunk | <name>
 color = "auto"          # auto | always | never
 mouse = true            # enable mouse reporting where supported
 toc = false             # start with the table-of-contents sidebar open
@@ -73,7 +73,7 @@ toggle_fold = "za"
 ### `theme`
 
 `auto` picks light or dark from terminal hints and falls back to dark. `dark`,
-`light` and `crt` are built in. Any other name is accepted and resolved against
+`light`, `crt` and `cyberpunk` are built in. Any other name is accepted and resolved against
 installed themes; an unknown name falls back to the built-in theme for the
 detected background.
 
@@ -83,6 +83,13 @@ nineties. It draws its own background rather than borrowing the terminal's, it
 underlines emphasis instead of slanting it, and it turns syntax highlighting
 off — a dozen hues in a code block would undo the two colours the rest of the
 theme is built from.
+
+`cyberpunk` is the netrunner-console theme: cyan on near-black, with crimson
+reserved for the chrome and the alarms — table borders, list and fold markers,
+warnings, the current search match. The split is deliberate, so anything red on
+the screen is something worth looking at. Like `crt` it paints its own
+background, and unlike `crt` it keeps italics and syntax colouring, because the
+console it comes from is a bitmapped one rather than a monochrome tube.
 
 ### `color`
 

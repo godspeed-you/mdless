@@ -149,7 +149,7 @@ diple [OPTIONS] [FILE]
 `~/.config/diple/config.toml`:
 
 ```toml
-theme = "auto"   # auto | dark | light | crt
+theme = "auto"   # auto | dark | light | crt | cyberpunk
 mouse = true
 toc = false
 key_hints = false

@@ -31,6 +31,14 @@ at the top for work that has not shipped yet.
   dozen highlighter hues would undo the two colours the theme is built from.
   Select it with `theme = "crt"`, `--theme crt` or `:theme crt`.
 
+- **A `cyberpunk` theme.** A netrunner console: cyan on near-black, with
+  crimson kept for the chrome and the alarms — table borders, list and fold
+  markers, warnings, the current search match — so anything red on the screen
+  is something worth looking at. It paints its own background like `crt` but
+  keeps italics and syntax colouring, being a bitmapped console rather than a
+  monochrome tube. Select it with `theme = "cyberpunk"`, `--theme cyberpunk` or
+  `:theme cyberpunk`.
+
 ### Fixed
 
 - **The line width limit and centring are now on by default.** `max_width` and

@@ -467,6 +467,69 @@ impl Theme {
         }
     }
 
+    /// The netrunner-console theme: cyan on black, crimson for anything that
+    /// wants attention.
+    ///
+    /// Where [`Theme::crt`] imitates one monitor, this imitates one interface:
+    /// a dark panel grid lit by two hues that never blend. Cyan carries the
+    /// content — headings, links, prose — and crimson carries the chrome and
+    /// the alarms: borders, list markers, warnings, the current search match.
+    /// The two are kept apart on purpose, so anything red on the screen is
+    /// something the reader is meant to look at.
+    ///
+    /// Unlike `crt` this is not a monochrome tube: it paints its own screen
+    /// but keeps italics and syntax colouring, because the console it comes
+    /// from is a bitmapped one.
+    pub fn cyberpunk() -> Theme {
+        // The panel behind everything: black with just enough blue in it to
+        // read as a screen rather than as an absence.
+        let base = rgb(0x05, 0x0a, 0x0e);
+        let cyan = rgb(0x22, 0xe8, 0xe8);
+        let cyan_bright = rgb(0x9c, 0xff, 0xff);
+        let cyan_dim = rgb(0x14, 0x8a, 0x92);
+        let crimson = rgb(0xe6, 0x00, 0x3c);
+        let crimson_bright = rgb(0xff, 0x3d, 0x6e);
+        let magenta = rgb(0xd6, 0x4c, 0xff);
+        let amber = rgb(0xff, 0xb8, 0x2e);
+        let body = rgb(0x8f, 0xd4, 0xd4);
+        Theme {
+            name: "cyberpunk".into(),
+            screen: Style::new().fg(body).bg(base),
+            dark: true,
+            syntax: true,
+            heading: [
+                Style::new().fg(cyan_bright).bold(),
+                Style::new().fg(cyan).bold(),
+                Style::new().fg(crimson_bright).bold(),
+                Style::new().fg(cyan_dim).bold(),
+                Style::new().fg(magenta),
+                Style::new().fg(cyan_dim),
+            ],
+            text: Style::new().fg(body),
+            emph: Style::new().fg(cyan).italic(),
+            strong: Style::new().fg(cyan_bright).bold(),
+            strike: Style::new().fg(cyan_dim).strikethrough(),
+            code: Style::new().fg(amber),
+            code_bg: Style::new().bg(rgb(0x0a, 0x14, 0x1a)),
+            quote: Style::new().fg(cyan_dim).italic(),
+            quote_gutter: Style::new().fg(crimson),
+            link: Style::new().fg(cyan).underline(),
+            link_selected: Style::new().fg(base).bg(cyan).bold(),
+            table_border: Style::new().fg(crimson),
+            table_header: Style::new().fg(crimson_bright).bold(),
+            list_marker: Style::new().fg(crimson),
+            task_done: Style::new().fg(cyan),
+            search_match: Style::new().fg(base).bg(cyan_dim),
+            search_current: Style::new().fg(base).bg(crimson_bright).bold(),
+            status_bar: Style::new().fg(cyan).bg(rgb(0x0d, 0x1a, 0x1f)),
+            toc: Style::new().fg(cyan_dim),
+            toc_selected: Style::new().fg(base).bg(cyan).bold(),
+            fold_marker: Style::new().fg(crimson),
+            diagram: Style::new().fg(cyan),
+            warning: Style::new().fg(crimson_bright).bold(),
+        }
+    }
+
     /// The phosphor-terminal theme: an early-nineties film's idea of a
     /// computer.
     ///
@@ -534,6 +597,7 @@ impl Theme {
             "dark" => Some(Theme::dark()),
             "light" => Some(Theme::light()),
             "crt" => Some(Theme::crt()),
+            "cyberpunk" => Some(Theme::cyberpunk()),
             _ => None,
         }
     }
@@ -751,9 +815,45 @@ mod tests {
     /// terminal's own background would be overwritten by an approximation of
     /// itself.
     #[test]
-    fn only_the_crt_theme_paints_the_screen() {
+    fn only_the_screen_owning_themes_paint_it() {
         assert_eq!(Theme::dark().screen.bg, None);
         assert_eq!(Theme::light().screen.bg, None);
+        assert!(Theme::crt().screen.bg.is_some());
+        assert!(Theme::cyberpunk().screen.bg.is_some());
+    }
+
+    /// `cyberpunk` divides its two hues by job: cyan is content, crimson is
+    /// chrome and alarm. The split is the whole design, so it is pinned —
+    /// a heading that turns red, or a warning that turns cyan, would make
+    /// red stop meaning "look here".
+    #[test]
+    fn the_cyberpunk_theme_keeps_content_and_alarm_apart() {
+        let theme = Theme::builtin("cyberpunk").expect("a built-in theme");
+        assert!(
+            theme.dark && theme.syntax,
+            "a bitmapped console, not a tube"
+        );
+
+        let reddish = |style: Style| match style.fg {
+            Some(Color::Rgb(r, g, b)) => r > g && r > b,
+            _ => false,
+        };
+        for (what, style) in [
+            ("body text", theme.text),
+            ("links", theme.link),
+            ("the first heading", theme.heading[0]),
+            ("emphasis", theme.emph),
+        ] {
+            assert!(!reddish(style), "{what} must not compete with the alarms");
+        }
+        for (what, style) in [
+            ("warnings", theme.warning),
+            ("table borders", theme.table_border),
+            ("list markers", theme.list_marker),
+            ("fold markers", theme.fold_marker),
+        ] {
+            assert!(reddish(style), "{what} carry the crimson");
+        }
     }
 
     #[test]
@@ -761,6 +861,7 @@ mod tests {
         assert_eq!(Theme::resolve("dark").name, "dark");
         assert_eq!(Theme::resolve("light").name, "light");
         assert_eq!(Theme::resolve("crt").name, "crt");
+        assert_eq!(Theme::resolve("cyberpunk").name, "cyberpunk");
         assert!(Theme::builtin("nope").is_none());
     }
 }

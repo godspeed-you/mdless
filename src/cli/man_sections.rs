@@ -257,7 +257,7 @@ or
 .SS "Complete example, showing every default"
 .RS 4
 .EX
-theme = "auto"          # auto | dark | light | crt | <name>
+theme = "auto"          # auto | dark | light | crt | cyberpunk
 color = "auto"          # auto | always | never
 mouse = true            # enable mouse reporting where supported
 toc = false             # start with the table\-of\-contents sidebar open

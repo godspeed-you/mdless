@@ -95,7 +95,7 @@ const BOOL: Kind = Kind::Bool;
 pub const ALL: &[Setting] = &[
     Setting {
         name: "theme",
-        kind: Kind::ChoiceOrName(&["auto", "dark", "light", "crt"]),
+        kind: Kind::ChoiceOrName(&["auto", "dark", "light", "crt", "cyberpunk"]),
         default: "auto",
         help: "colour theme; auto follows the terminal background",
     },
