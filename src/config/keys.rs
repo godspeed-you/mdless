@@ -283,6 +283,7 @@ const DEFAULT_BINDINGS: &[(Action, &[&str])] = &[
     (Action::CollapseAll, &["zM"]),
     (Action::ExpandAll, &["zR"]),
     (Action::Help, &["?", "f1"]),
+    (Action::CommandPrompt, &[":"]),
     (Action::ToggleMermaidSource, &["s"]),
 ];
 

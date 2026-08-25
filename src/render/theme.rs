@@ -302,9 +302,18 @@ impl Style {
 pub struct Theme {
     /// Theme name (`dark`, `light`, …).
     pub name: String,
+    /// Painted over the whole screen before anything else, for a theme whose
+    /// point is the colour of the screen itself. Empty in the themes that let
+    /// the terminal's own background through, which is all of them but `crt`.
+    pub screen: Style,
     /// Whether this theme is designed for a dark background (also selects the
     /// syntect highlighting theme).
     pub dark: bool,
+    /// Whether code blocks are coloured by the syntax highlighter.
+    ///
+    /// `false` draws them in [`Theme::code`] alone, for a theme whose palette
+    /// is the whole point and which a highlighter's dozen hues would break.
+    pub syntax: bool,
     /// Styles for heading levels 1..=6.
     pub heading: [Style; 6],
     /// Body text.
@@ -369,7 +378,9 @@ impl Theme {
         let base = rgb(0x1a, 0x1b, 0x26);
         Theme {
             name: "dark".into(),
+            screen: Style::new(),
             dark: true,
+            syntax: true,
             heading: [
                 Style::new().fg(rgb(0x82, 0xaa, 0xff)).bold(),
                 Style::new().fg(rgb(0x9e, 0xce, 0x6a)).bold(),
@@ -413,7 +424,9 @@ impl Theme {
         let base = rgb(0xff, 0xff, 0xff);
         Theme {
             name: "light".into(),
+            screen: Style::new(),
             dark: false,
+            syntax: true,
             heading: [
                 Style::new().fg(rgb(0x1a, 0x4f, 0xa0)).bold(),
                 Style::new().fg(rgb(0x2a, 0x6b, 0x2a)).bold(),
@@ -454,11 +467,73 @@ impl Theme {
         }
     }
 
+    /// The phosphor-terminal theme: an early-nineties film's idea of a
+    /// computer.
+    ///
+    /// Two colours, because a monitor of that era had two: P1 phosphor green
+    /// for everything, and amber for anything that would have been meant to
+    /// alarm the audience. Contrast is carried by brightness and by reversing
+    /// the beam, the way it was on a monochrome tube, rather than by hue —
+    /// which is why the headings step down through five greens instead of
+    /// picking five colours, and why emphasis is underlined rather than
+    /// italic: a character generator drawing an 8×14 cell had no italics.
+    pub fn crt() -> Theme {
+        // The tube: not quite black, because the phosphor never fully
+        // stopped glowing between refreshes.
+        let base = rgb(0x00, 0x14, 0x08);
+        let bright = rgb(0xcc, 0xff, 0xcc);
+        let green = rgb(0x33, 0xff, 0x33);
+        let mid = rgb(0x2b, 0xcc, 0x2b);
+        let dim = rgb(0x1d, 0x8a, 0x1d);
+        let amber = rgb(0xff, 0xb0, 0x00);
+        Theme {
+            name: "crt".into(),
+            // The one theme that paints the screen: the tube is the point.
+            screen: Style::new().fg(green).bg(base),
+            dark: true,
+            // A terminal of that era coloured nothing by grammar, and a dozen
+            // syntax hues would undo the two-phosphor palette in one code
+            // block.
+            syntax: false,
+            heading: [
+                Style::new().fg(bright).bold().underline(),
+                Style::new().fg(bright).bold(),
+                Style::new().fg(green).bold(),
+                Style::new().fg(green),
+                Style::new().fg(mid),
+                Style::new().fg(dim),
+            ],
+            text: Style::new().fg(green),
+            emph: Style::new().fg(green).underline(),
+            strong: Style::new().fg(bright).bold(),
+            strike: Style::new().fg(dim).strikethrough(),
+            code: Style::new().fg(amber),
+            code_bg: Style::new().bg(rgb(0x00, 0x22, 0x0e)),
+            quote: Style::new().fg(mid),
+            quote_gutter: Style::new().fg(dim),
+            link: Style::new().fg(bright).underline(),
+            link_selected: Style::new().fg(base).bg(bright).bold(),
+            table_border: Style::new().fg(dim),
+            table_header: Style::new().fg(bright).bold(),
+            list_marker: Style::new().fg(green),
+            task_done: Style::new().fg(amber),
+            search_match: Style::new().fg(base).bg(mid),
+            search_current: Style::new().fg(base).bg(green).bold(),
+            status_bar: Style::new().fg(base).bg(green).bold(),
+            toc: Style::new().fg(mid),
+            toc_selected: Style::new().fg(base).bg(green).bold(),
+            fold_marker: Style::new().fg(amber),
+            diagram: Style::new().fg(green),
+            warning: Style::new().fg(amber).bold(),
+        }
+    }
+
     /// A built-in theme by name (`dark`, `light`), or `None`.
     pub fn builtin(name: &str) -> Option<Theme> {
         match name {
             "dark" => Some(Theme::dark()),
             "light" => Some(Theme::light()),
+            "crt" => Some(Theme::crt()),
             _ => None,
         }
     }
@@ -495,6 +570,8 @@ impl Theme {
         let Theme {
             name: _,
             dark: _,
+            syntax: _,
+            screen,
             heading,
             text,
             emph,
@@ -521,6 +598,7 @@ impl Theme {
         } = self;
         let mut v: Vec<&mut Style> = heading.iter_mut().collect();
         v.extend([
+            screen,
             text,
             emph,
             strong,
@@ -641,10 +719,48 @@ mod tests {
         }
     }
 
+    /// The point of `crt` is that it looks like one monitor, not like a
+    /// palette: every colour it draws with is either phosphor green or the
+    /// amber alert colour, and it paints its own screen.
+    #[test]
+    fn the_crt_theme_is_two_phosphors_on_a_painted_screen() {
+        let theme = Theme::builtin("crt").expect("a built-in theme");
+        assert_eq!(theme.name, "crt");
+        assert!(theme.dark, "it selects the dark syntax highlighting");
+        assert_eq!(theme.screen.bg, Some(rgb(0x00, 0x14, 0x08)));
+
+        let mut theme = theme;
+        let amber = rgb(0xff, 0xb0, 0x00);
+        for style in theme.styles_mut() {
+            for colour in [style.fg, style.bg].into_iter().flatten() {
+                let Color::Rgb(r, g, b) = colour else {
+                    panic!("the palette is defined in RGB");
+                };
+                if colour == amber {
+                    continue;
+                }
+                assert!(
+                    g >= r && g >= b,
+                    "green never loses to another channel: {colour:?}"
+                );
+            }
+        }
+    }
+
+    /// The themes that do not own the screen must not paint it, or every
+    /// terminal's own background would be overwritten by an approximation of
+    /// itself.
+    #[test]
+    fn only_the_crt_theme_paints_the_screen() {
+        assert_eq!(Theme::dark().screen.bg, None);
+        assert_eq!(Theme::light().screen.bg, None);
+    }
+
     #[test]
     fn resolve_names() {
         assert_eq!(Theme::resolve("dark").name, "dark");
         assert_eq!(Theme::resolve("light").name, "light");
+        assert_eq!(Theme::resolve("crt").name, "crt");
         assert!(Theme::builtin("nope").is_none());
     }
 }

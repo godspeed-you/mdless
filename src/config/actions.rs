@@ -72,6 +72,8 @@ pub enum Action {
     ExpandAll,
     /// Show the help overlay (`?`).
     Help,
+    /// Open the `:` command line (`:`).
+    CommandPrompt,
     /// Toggle Mermaid source view on a diagram (`s`).
     ToggleMermaidSource,
 }
@@ -111,6 +113,7 @@ impl Action {
         Action::CollapseAll,
         Action::ExpandAll,
         Action::Help,
+        Action::CommandPrompt,
         Action::ToggleMermaidSource,
     ];
 
@@ -149,6 +152,7 @@ impl Action {
             Action::CollapseAll => "collapse_all",
             Action::ExpandAll => "expand_all",
             Action::Help => "help",
+            Action::CommandPrompt => "command_prompt",
             Action::ToggleMermaidSource => "toggle_mermaid_source",
         }
     }
@@ -193,6 +197,7 @@ impl Action {
             Action::CollapseAll => "collapse all sections",
             Action::ExpandAll => "expand all sections",
             Action::Help => "help",
+            Action::CommandPrompt => "command line (: set a setting)",
             Action::ToggleMermaidSource => "toggle mermaid source",
         }
     }

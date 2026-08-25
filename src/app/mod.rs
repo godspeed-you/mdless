@@ -14,6 +14,7 @@
 //! * `hints` — the right-hand key hints sidebar and its context rules.
 
 pub(crate) mod adapters;
+pub(crate) mod command;
 pub(crate) mod diagrams;
 pub mod events;
 pub(crate) mod hints;

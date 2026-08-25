@@ -120,6 +120,7 @@ type HighlightedLine = Vec<(Style, String)>;
 struct CacheKey {
     node: NodeId,
     dark: bool,
+    syntax: bool,
     tab_width: usize,
 }
 
@@ -168,6 +169,7 @@ impl CodeCache {
         let key = CacheKey {
             node,
             dark: theme.dark,
+            syntax: theme.syntax,
             tab_width,
         };
         if let Some(hit) = self.map.borrow().get(&key) {
@@ -183,6 +185,7 @@ impl CodeCache {
         let key = CacheKey {
             node,
             dark: theme.dark,
+            syntax: theme.syntax,
             tab_width,
         };
         let hit = self.map.borrow().get(&key).cloned();
@@ -233,7 +236,7 @@ pub fn highlight(
     };
 
     let token = language.map(language_token).unwrap_or("");
-    if token.is_empty() || token == "txt" {
+    if !theme.syntax || token.is_empty() || token == "txt" {
         return plain();
     }
     let ps = syntax_set();

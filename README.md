@@ -31,6 +31,8 @@ diple README.md
 - **Table of contents** — sidebar reflecting the real heading hierarchy
 - **Key hints sidebar** — `K` shows, on the right, the commands available right
   now, following the mode and the cursor context
+- **Command line** — `:` changes any setting while running, with completion and
+  a `:help` listing every key, its values and its default
 - **Terminal-aware tables** — column widths computed from content and terminal
   width, with wrapping or horizontal scrolling
 - **Syntax highlighting** — fenced code blocks, optional line numbers
@@ -117,6 +119,7 @@ text and exits — so `diple README.md | head -20` and CI usage behave sensibly.
 | `t` | toggle the table of contents |
 | `K` | toggle the key hints sidebar |
 | `m` | hand the mouse back to the terminal, to select text with it |
+| `:` | command line: `:center = false`, `:theme crt`, `:help` |
 | `s` | toggle Mermaid source view |
 | `?` | help |
 | `q` | quit |
@@ -146,7 +149,7 @@ diple [OPTIONS] [FILE]
 `~/.config/diple/config.toml`:
 
 ```toml
-theme = "auto"
+theme = "auto"   # auto | dark | light | crt
 mouse = true
 toc = false
 key_hints = false

@@ -255,6 +255,11 @@ macro_rules! string_enum {
             pub fn expected() -> &'static str {
                 concat!("one of: ", $($text, " ",)+)
             }
+
+            /// Every accepted value, for completion and the settings help.
+            pub fn values() -> &'static [&'static str] {
+                &[$($text,)+]
+            }
         }
 
         impl fmt::Display for $name {

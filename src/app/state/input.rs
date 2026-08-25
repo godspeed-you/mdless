@@ -19,9 +19,10 @@
 //! there is exactly one behaviour to keep consistent.
 
 use super::navigate::FoldOp;
-use super::{App, Mode};
+use super::{App, HelpKind, Mode};
 use crate::config::actions::Action;
 use crate::config::keys::KeyMatch;
+use crate::config::settings;
 use crate::render::primitives::LineKind;
 use crate::render::terminal::{HintLine, KeyHintsSidebar};
 
@@ -44,6 +45,10 @@ impl App {
 
         if self.mode == Mode::Search {
             self.handle_search_key(event);
+            return;
+        }
+        if self.mode == Mode::Command {
+            self.handle_command_key(event);
             return;
         }
         if self.mode == Mode::Message {
@@ -108,6 +113,112 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// The `:` line editor.
+    ///
+    /// Like the search prompt, this bypasses the key map entirely: while a
+    /// line is being typed every printable key is text, not a binding.
+    fn handle_command_key(&mut self, event: &crossterm::event::KeyEvent) {
+        use crossterm::event::KeyCode;
+        match event.code {
+            KeyCode::Esc => {
+                self.mode = Mode::Normal;
+                self.command.open();
+            }
+            KeyCode::Enter => {
+                self.mode = Mode::Normal;
+                let line = self.command.line.clone();
+                self.run_command(&line);
+                self.command.open();
+            }
+            KeyCode::Tab => self.command.complete(),
+            KeyCode::Backspace => {
+                // Backspacing past the `:` leaves, so the key that opened the
+                // prompt is also the one that closes an empty one.
+                if !self.command.backspace() {
+                    self.mode = Mode::Normal;
+                }
+            }
+            KeyCode::Char(c)
+                if !event
+                    .modifiers
+                    .contains(crossterm::event::KeyModifiers::CONTROL) =>
+            {
+                self.command.push(c);
+            }
+            _ => {}
+        }
+    }
+
+    /// Execute one typed command line.
+    pub(crate) fn run_command(&mut self, line: &str) {
+        use crate::app::command::{parse, Command};
+        match parse(line) {
+            Command::Empty => {}
+            Command::Quit => self.quit = true,
+            Command::Help => {
+                self.help_kind = HelpKind::Settings;
+                self.help_scroll = 0;
+                self.mode = Mode::Help;
+            }
+            Command::Show(key) => match settings::read(&self.config, &key) {
+                Some(value) => self.set_message(format!("{key} = {value}")),
+                None => self.set_message(format!("unknown setting: {key}")),
+            },
+            Command::Unknown(key) => self.unknown_setting(&key),
+            Command::Set(key, value) => match settings::write(&mut self.config, &key, &value) {
+                Ok(effect) => {
+                    self.apply_effect(effect);
+                    let shown = settings::read(&self.config, &key).unwrap_or(value);
+                    self.set_message(format!("{key} = {shown}"));
+                }
+                Err(message) if settings::get(&key).is_none() => {
+                    // The same wrong key reads the same whether or not a
+                    // value was typed after it.
+                    let _ = message;
+                    self.unknown_setting(&key);
+                }
+                Err(message) => self.set_message(message),
+            },
+        }
+    }
+
+    /// One wording for a name no setting has, wherever it was typed.
+    fn unknown_setting(&mut self, key: &str) {
+        self.set_message(format!("unknown setting: {key} (`:help` lists them)"));
+    }
+
+    /// Bring the rest of the application in line with a changed setting.
+    ///
+    /// Everything a key can reach is re-derived here rather than at the call
+    /// site, so a new setting only has to name its [`Effect`] to take hold.
+    fn apply_effect(&mut self, effect: settings::Effect) {
+        use settings::Effect;
+        match effect {
+            Effect::Redraw => {}
+            Effect::Relayout => self.invalidate(),
+            Effect::Palette => {
+                self.color = crate::app::color_level(self.config.color, &self.caps);
+                self.theme = crate::app::resolve_theme(&self.config.theme, self.color);
+                // The syntax highlighting is baked into the tree with the old
+                // palette, so the tree has to go with it.
+                self.invalidate();
+            }
+            Effect::Sidebar => {
+                if self.toc.open != self.config.toc {
+                    self.toc.open = self.config.toc && !self.toc.is_empty();
+                    self.toc.h_scroll = 0;
+                }
+                self.hints.open = self.config.key_hints;
+                if self.mode == Mode::Toc && !self.toc.open {
+                    self.mode = Mode::Normal;
+                }
+                self.invalidate();
+            }
+            Effect::Mouse => self.mouse_on = self.config.mouse && self.caps.mouse,
+        }
+        self.ensure_layout();
     }
 
     fn handle_toc_key(&mut self, event: &crossterm::event::KeyEvent) {
@@ -218,12 +329,18 @@ impl App {
                 self.after_fold_change();
                 self.set_message("all sections expanded");
             }
+            Action::CommandPrompt => {
+                self.command.open();
+                self.mode = Mode::Command;
+                self.clear_message();
+            }
             Action::Help => {
                 self.mode = if self.mode == Mode::Help {
                     Mode::Normal
                 } else {
                     Mode::Help
                 };
+                self.help_kind = HelpKind::Keys;
                 self.help_scroll = 0;
             }
             Action::ToggleMermaidSource => self.toggle_mermaid_source(),
@@ -242,7 +359,7 @@ impl App {
                 self.toc.open = false;
                 self.invalidate();
             }
-            Mode::Search => {
+            Mode::Search | Mode::Command => {
                 self.mode = Mode::Normal;
             }
             _ => {
@@ -581,5 +698,118 @@ mod tests {
         a.apply(Action::Cancel);
         assert_eq!(a.mode(), Mode::Normal);
         assert_eq!(a.help_scroll(), 0);
+    }
+
+    /// The `:` line is typed, not bound: every printable key is text, Tab
+    /// completes it, and Enter applies it to the live configuration.
+    #[test]
+    fn the_command_line_types_completes_and_applies() {
+        let mut a = app_with(DOC, (120, 24));
+        assert!(a.config.center, "the default this test then turns off");
+
+        key(&mut a, ':');
+        assert_eq!(a.mode(), Mode::Command);
+        // `j` is a binding in normal mode and a letter in this one.
+        for c in "ce".chars() {
+            key(&mut a, c);
+        }
+        code(&mut a, KeyCode::Tab);
+        assert_eq!(a.command.prompt(), ":center = ", "completed and separated");
+        for c in "false".chars() {
+            key(&mut a, c);
+        }
+        code(&mut a, KeyCode::Enter);
+
+        assert_eq!(a.mode(), Mode::Normal);
+        assert!(!a.config.center, "the setting took hold");
+        assert_eq!(a.content_margin(), 0, "and the layout followed it");
+        assert_eq!(a.message(), Some("center = false"));
+        assert!(
+            a.command.line.is_empty(),
+            "the line is cleared for next time"
+        );
+    }
+
+    /// Reading is not writing: a bare key reports, an unknown key says so and
+    /// a refused value leaves the configuration alone.
+    #[test]
+    fn the_command_line_reports_and_refuses() {
+        let mut a = app_with(DOC, (120, 24));
+
+        a.run_command("max_width");
+        assert_eq!(a.message(), Some("max_width = 160"));
+
+        a.run_command("max_width = wide");
+        assert_eq!(a.message(), Some("max_width takes 0.."));
+        assert_eq!(a.config.max_width, 160, "a refused value changes nothing");
+
+        a.run_command("centre = true");
+        assert_eq!(
+            a.message(),
+            Some("unknown setting: centre (`:help` lists them)")
+        );
+
+        a.run_command("max_width = 100");
+        assert_eq!(a.config.max_width, 100);
+        assert_eq!(a.content_width(), 100, "the document was laid out again");
+    }
+
+    /// A setting is not just a field: the parts of the program it feeds have
+    /// to follow it, which is what `Effect` is for.
+    #[test]
+    fn a_setting_takes_hold_where_it_is_used() {
+        let mut a = with_mouse(app_with(DOC, (120, 24)));
+
+        a.run_command("theme = crt");
+        assert_eq!(a.theme.name, "crt", "the palette was rebuilt");
+
+        a.run_command("toc = true");
+        assert!(a.toc.open, "the sidebar opened");
+        assert!(a.sidebar_widths().0 > 0);
+        a.run_command("toc = false");
+        assert!(!a.toc.open);
+
+        a.run_command("mouse = false");
+        assert!(!a.mouse_on(), "reporting followed the setting");
+        a.run_command("mouse = true");
+        assert!(a.mouse_on());
+
+        a.run_command("wrap = false");
+        assert!(!a.config.wrap);
+    }
+
+    /// `:help` shows the settings, `?` the keys, and both use the same
+    /// overlay — so the one that was asked for must be the one drawn.
+    #[test]
+    fn the_two_helps_do_not_collide() {
+        let mut a = app_with(DOC, (120, 24));
+        a.run_command("help");
+        assert_eq!(a.mode(), Mode::Help);
+        assert_eq!(a.help_kind(), HelpKind::Settings);
+
+        a.apply(Action::Cancel);
+        a.apply(Action::Help);
+        assert_eq!(a.help_kind(), HelpKind::Keys);
+        let keys: Vec<String> = a.help_entries().into_iter().map(|(k, _)| k).collect();
+        assert!(keys.iter().any(|k| k == ":"), "`:` is a documented key");
+    }
+
+    /// Backspacing past the `:` leaves the prompt, and Esc abandons whatever
+    /// was typed without applying any of it.
+    #[test]
+    fn the_command_line_can_be_left_without_applying() {
+        let mut a = app_with(DOC, (120, 24));
+        key(&mut a, ':');
+        code(&mut a, KeyCode::Backspace);
+        assert_eq!(a.mode(), Mode::Normal, "an empty line closes");
+
+        key(&mut a, ':');
+        for c in "center = false".chars() {
+            key(&mut a, c);
+        }
+        code(&mut a, KeyCode::Esc);
+        assert_eq!(a.mode(), Mode::Normal);
+        assert!(a.config.center, "Esc applied nothing");
+        assert!(a.command.line.is_empty());
     }
 }

@@ -28,7 +28,7 @@ Environment overrides: `DIPLE_CONFIG`, `DIPLE_THEME`, `DIPLE_MERMAID`.
 ## Complete example with defaults
 
 ```toml
-theme = "auto"          # auto | dark | light | <name>
+theme = "auto"          # auto | dark | light | crt | <name>
 color = "auto"          # auto | always | never
 mouse = true            # enable mouse reporting where supported
 toc = false             # start with the table-of-contents sidebar open
@@ -72,10 +72,17 @@ toggle_fold = "za"
 
 ### `theme`
 
-`auto` picks light or dark from terminal hints and falls back to dark. `dark`
-and `light` are built in. Any other name is accepted and resolved against
+`auto` picks light or dark from terminal hints and falls back to dark. `dark`,
+`light` and `crt` are built in. Any other name is accepted and resolved against
 installed themes; an unknown name falls back to the built-in theme for the
 detected background.
+
+`crt` is the phosphor-terminal theme: green on a painted dark screen with amber
+for anything alarming, the way a computer looked in a film from the early
+nineties. It draws its own background rather than borrowing the terminal's, it
+underlines emphasis instead of slanting it, and it turns syntax highlighting
+off — a dozen hues in a code block would undo the two colours the rest of the
+theme is built from.
 
 ### `color`
 

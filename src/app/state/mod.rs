@@ -46,6 +46,7 @@ mod sidebars;
 
 use std::process::Child;
 
+use crate::app::command::CommandState;
 use crate::app::diagrams::DiagramProvider;
 use crate::app::hints::HintsState;
 use crate::app::search_ui::SearchState;
@@ -65,6 +66,15 @@ use layout_cache::BuildKey;
 /// preserves enough surrounding context.
 pub(crate) const HEADING_CONTEXT: usize = 2;
 
+/// What the help overlay is showing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HelpKind {
+    /// Keys and what they do (`?`).
+    Keys,
+    /// Settings, their values and their defaults (`:help`).
+    Settings,
+}
+
 /// Interaction modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -72,6 +82,8 @@ pub enum Mode {
     Normal,
     /// The `/` search prompt has keyboard focus.
     Search,
+    /// The `:` command line has keyboard focus.
+    Command,
     /// The TOC sidebar has keyboard focus.
     Toc,
     /// The help overlay is shown.
@@ -143,6 +155,7 @@ pub struct App {
     pub(crate) diagrams: DiagramProvider,
     /// Search prompt and result set.
     pub(crate) search: SearchState,
+    pub(crate) command: CommandState,
     /// TOC sidebar state.
     pub(crate) toc: TocState,
     /// Key hints sidebar state (the right-hand mirror of `App::toc`).
@@ -164,6 +177,7 @@ pub struct App {
     painted_query: String,
     selected_link: Option<LinkId>,
     mode: Mode,
+    help_kind: HelpKind,
     mouse_on: bool,
     message: Option<String>,
     pending: String,
@@ -220,6 +234,7 @@ impl App {
             color,
             diagrams,
             search: SearchState::default(),
+            command: CommandState::default(),
             toc,
             hints,
             layout: Layout::new(),
@@ -237,6 +252,7 @@ impl App {
             painted_query: String::new(),
             selected_link: None,
             mode: Mode::Normal,
+            help_kind: HelpKind::Keys,
             mouse_on: false, // set below, once `config` and `caps` are owned
             message: None,
             pending: String::new(),
@@ -312,6 +328,11 @@ impl App {
     /// Whether the app was asked to quit.
     pub(crate) fn should_quit(&self) -> bool {
         self.quit
+    }
+
+    /// What the help overlay is currently showing.
+    pub(crate) fn help_kind(&self) -> HelpKind {
+        self.help_kind
     }
 
     /// Whether diple is currently asking the terminal for mouse events.
@@ -422,7 +443,7 @@ impl App {
 
     /// Number of rows reserved at the bottom for the status bar and prompt.
     pub(crate) fn chrome_rows(&self) -> u16 {
-        if self.mode == Mode::Search {
+        if matches!(self.mode, Mode::Search | Mode::Command) {
             2
         } else {
             1

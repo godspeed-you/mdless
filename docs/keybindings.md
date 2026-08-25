@@ -78,6 +78,7 @@ links are also emitted as native terminal hyperlinks.
 | `t` | `toggle_toc` | toggle the table-of-contents sidebar |
 | `K` | `toggle_key_hints` | toggle the key hints sidebar |
 | `m` | `toggle_mouse` | toggle mouse reporting (off: select text with the mouse) |
+| `:` | `command_prompt` | open the command line to change a setting |
 | `s` | `toggle_mermaid_source` | toggle Mermaid source view for the diagram at the cursor |
 | `?`, `F1` | `help` | show the help overlay |
 | `Esc` | `cancel` | close the overlay, prompt or sidebar |
@@ -94,6 +95,30 @@ good: while the sidebar has the focus, `h`/`l` (or `←`/`→`) scroll the outli
 sideways instead of the document, and the key hints offer them only while
 something is actually cut off. Closing and reopening the sidebar returns it to
 the left edge of the outline.
+
+## The command line
+
+`:` opens a command line for changing a setting while diple is running. The key
+is the one the configuration file uses, dotted for a section, and the separator
+is `=` or a space — `:center = false`, `:theme crt`, `:table.mode compact` all
+work, as does a leading `set` for the muscle memory it comes from.
+
+| Input | Effect |
+|---|---|
+| `:center` | report what `center` is currently set to |
+| `:center = false` | set it, and lay the document out again |
+| `Tab` | complete the key, or the value once a separator is typed |
+| `:help` | every setting, its accepted values and its default |
+| `:q` | quit |
+| `Esc` | leave the line without applying it |
+
+Completion stops where the answer stops being unique: it fills in the longest
+prefix every candidate shares and lists the rest in the status line. A key that
+completes to exactly one match gains its ` = ` too, so the next keystroke is
+already the value.
+
+Changes apply immediately and last for the session — the configuration file is
+never written, so a change that turns out badly is undone by restarting.
 
 The key hints sidebar (`K`) is drawn on the right-hand edge and lists, grouped
 and labelled, the commands that are available *right now* — it is not a static

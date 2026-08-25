@@ -196,6 +196,30 @@ Close the overlay, prompt or sidebar (\fBcancel\fR).
 .TP
 .BR q ", " Ctrl\-C
 Quit (\fBquit\fR).
+.SS "Command line"
+.TP
+.B :
+Open the command line (\fBcommand_prompt\fR) and change a setting for the
+running session. The key is the one the configuration file uses, dotted for a
+section, and the separator may be \fB=\fR or a space:
+.BR ":center = false" ,
+.BR ":theme crt" ,
+.BR ":table.mode compact" .
+A leading
+.B set
+is accepted and ignored.
+.IP
+A key on its own reports its current value.
+.B Tab
+completes the key, and once a separator is typed it completes the value; what
+is still possible is listed in the status line.
+.B :help
+shows every setting with the values it takes and the default it started from,
+.B :q
+quits, and
+.B Esc
+leaves the line without applying it. Changes last for the session; the
+configuration file is not written.
 "#;
 
 /// `.SH CONFIGURATION` — the configuration *file*, as opposed to the
@@ -233,7 +257,7 @@ or
 .SS "Complete example, showing every default"
 .RS 4
 .EX
-theme = "auto"          # auto | dark | light | <name>
+theme = "auto"          # auto | dark | light | crt | <name>
 color = "auto"          # auto | always | never
 mouse = true            # enable mouse reporting where supported
 toc = false             # start with the table\-of\-contents sidebar open

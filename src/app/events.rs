@@ -39,7 +39,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
 use ratatui::Terminal;
 
-use crate::app::state::{App, Mode};
+use crate::app::state::{App, HelpKind, Mode};
 use crate::render::primitives::LineKind;
 use crate::render::terminal::{DocumentView, HelpOverlay, KeyHintsSidebar, StatusBar, TocSidebar};
 
@@ -125,6 +125,19 @@ fn centered(area: Rect, pct_x: u16, pct_y: u16) -> Rect {
 pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
     let all = areas(app, frame.area());
 
+    // A theme may own the screen itself rather than borrowing the terminal's
+    // background. Painted first, under everything, and a no-op for a theme
+    // that sets no background — which is every theme but `crt`.
+    if app.theme.screen.bg.is_some() {
+        frame.render_widget(
+            ratatui::widgets::Block::default().style(crate::render::terminal::to_ratatui(
+                app.theme.screen,
+                app.color,
+            )),
+            frame.area(),
+        );
+    }
+
     if all.sidebar.width > 0 {
         let current = app.current_section().and_then(|s| app.toc.index_of(s));
         frame.render_widget(
@@ -168,7 +181,12 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
         all.content,
     );
 
-    let prompt = app.search.prompt();
+    // The two prompts share the status area's second row: only one of them
+    // can have the keyboard, so only one can be drawn.
+    let prompt = match app.mode() {
+        Mode::Command => app.command.prompt(),
+        _ => app.search.prompt(),
+    };
     let message = status_message(app);
     frame.render_widget(
         StatusBar {
@@ -177,7 +195,7 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
             line: app.bottom_line(),
             total: app.tree().len(),
             message: message.as_deref(),
-            search: (app.mode() == Mode::Search).then_some(prompt.as_str()),
+            search: matches!(app.mode(), Mode::Search | Mode::Command).then_some(prompt.as_str()),
             theme: &app.theme,
             level: app.color,
             unicode: app.caps.unicode_box,
@@ -187,7 +205,10 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
 
     if app.mode() == Mode::Help {
         let area = centered(frame.area(), 80, 80);
-        let entries = app.help_entries();
+        let entries = match app.help_kind() {
+            HelpKind::Settings => crate::config::settings::help_entries(),
+            HelpKind::Keys => app.help_entries(),
+        };
         let rows = usize::from(area.height).saturating_sub(2).max(1);
         let scroll = app.help_scroll().min(entries.len().saturating_sub(1));
         let window: Vec<(String, String)> = entries.into_iter().skip(scroll).take(rows).collect();
@@ -213,7 +234,16 @@ fn status_message(app: &App) -> Option<String> {
     }
     match app.mode() {
         Mode::Toc => Some("TOC: j/k move, Enter jump, Esc close".to_string()),
-        Mode::Help => Some("help: j/k scroll, Esc close".to_string()),
+        Mode::Help => Some(match app.help_kind() {
+            HelpKind::Settings => "settings: j/k scroll, Esc close".to_string(),
+            HelpKind::Keys => "help: j/k scroll, Esc close".to_string(),
+        }),
+        // What Tab last offered, until the next keystroke replaces it.
+        Mode::Command => Some(
+            app.command
+                .candidate_hint()
+                .unwrap_or_else(|| "Tab completes, `:help` lists every setting".to_string()),
+        ),
         _ if app.search.has_matches() => Some(app.search.prompt()),
         _ => None,
     }

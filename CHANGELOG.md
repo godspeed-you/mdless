@@ -11,6 +11,26 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+### Added
+
+- **A `:` command line for changing settings while reading.** Every key the
+  configuration file has is settable at runtime under the same name, dotted for
+  a section: `:center = false`, `:theme crt`, `:table.mode compact`. The
+  separator may be `=` or a space, a key on its own reports its current value,
+  and `Tab` completes — the key first, then the value once a separator is
+  typed, filling in as much as is unambiguous and listing the rest in the
+  status line. `:help` shows every setting with the values it accepts and the
+  default it started from, `:q` quits, `Esc` leaves without applying. Changes
+  last for the session; the configuration file is not written.
+
+- **A `crt` theme.** An early-nineties film's idea of a computer: phosphor
+  green on a screen the theme paints itself, amber for anything alarming, and
+  contrast carried by brightness and reversed video rather than by hue.
+  Emphasis is underlined instead of slanted and code blocks are not syntax
+  coloured, because neither was a thing a terminal of that era could do — and a
+  dozen highlighter hues would undo the two colours the theme is built from.
+  Select it with `theme = "crt"`, `--theme crt` or `:theme crt`.
+
 ### Fixed
 
 - **The line width limit and centring are now on by default.** `max_width` and

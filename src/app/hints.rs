@@ -167,6 +167,7 @@ fn group(title: &'static str, priority: u8, rows: Vec<Option<HintRow>>) -> Optio
 pub(crate) fn groups(ctx: &HintContext, keys: &KeyMap) -> Vec<HintGroup> {
     match ctx.mode {
         Mode::Search => search_groups(keys),
+        Mode::Command => command_groups(),
         Mode::Toc => toc_groups(keys),
         Mode::Help => help_groups(keys),
         Mode::Normal | Mode::Message => normal_groups(ctx, keys),
@@ -349,6 +350,28 @@ fn search_groups(_keys: &KeyMap) -> Vec<HintGroup> {
                 label: "cancel".to_string(),
                 action: Action::Cancel,
             },
+        ],
+    }]
+}
+
+/// Like [`search_groups`]: while the `:` line has the keys, the key map is
+/// bypassed, so these labels name the line editor's own keys rather than
+/// bindable actions.
+fn command_groups() -> Vec<HintGroup> {
+    let row = |keys: &str, label: &str, action| HintRow {
+        keys: keys.to_string(),
+        label: label.to_string(),
+        action,
+    };
+    vec![HintGroup {
+        title: "Command",
+        priority: 0,
+        rows: vec![
+            row("…", "key = value", Action::CommandPrompt),
+            row("tab", "complete", Action::CommandPrompt),
+            row("enter", "apply", Action::CommandPrompt),
+            row(":help", "all settings", Action::CommandPrompt),
+            row("esc", "cancel", Action::Cancel),
         ],
     }]
 }

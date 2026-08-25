@@ -5,6 +5,7 @@ pub mod actions;
 pub mod keys;
 pub mod loader;
 pub mod schema;
+pub mod settings;
 
 pub use actions::Action;
 pub use keys::{Key, KeyMap, KeyMatch};
