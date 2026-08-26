@@ -7,7 +7,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Action {
-    /// Quit diple (`q`, `Ctrl-C`).
+    /// Close the focused document; the last one quits (`q`, `Ctrl-C`).
     Quit,
     /// Cancel the current sub-mode (`Esc`).
     Cancel,
@@ -52,6 +52,12 @@ pub enum Action {
     /// Toggle mouse reporting, handing the mouse back to the terminal so
     /// text can be selected with it (`m`).
     ToggleMouse,
+    /// Move the focus to the other pane of a split (`Ctrl-W`).
+    FocusOtherPane,
+    /// Show the next tab (`Ctrl-N`).
+    NextTab,
+    /// Show the previous tab (`Ctrl-P`).
+    PreviousTab,
     /// Activate selected heading/link (`Enter`).
     Activate,
     /// Open the selected link (`o`).
@@ -103,6 +109,9 @@ impl Action {
         Action::ToggleToc,
         Action::ToggleKeyHints,
         Action::ToggleMouse,
+        Action::FocusOtherPane,
+        Action::NextTab,
+        Action::PreviousTab,
         Action::Activate,
         Action::OpenLink,
         Action::NextLink,
@@ -142,6 +151,9 @@ impl Action {
             Action::ToggleToc => "toggle_toc",
             Action::ToggleKeyHints => "toggle_key_hints",
             Action::ToggleMouse => "toggle_mouse",
+            Action::FocusOtherPane => "focus_other_pane",
+            Action::NextTab => "next_tab",
+            Action::PreviousTab => "previous_tab",
             Action::Activate => "activate",
             Action::OpenLink => "open_link",
             Action::NextLink => "next_link",
@@ -165,7 +177,7 @@ impl Action {
     /// Human-readable description for the help overlay.
     pub fn description(self) -> &'static str {
         match self {
-            Action::Quit => "quit",
+            Action::Quit => "close document (the last one quits)",
             Action::Cancel => "cancel / close",
             Action::ScrollDown => "scroll down",
             Action::ScrollUp => "scroll up",
@@ -187,6 +199,9 @@ impl Action {
             Action::ToggleToc => "toggle table of contents",
             Action::ToggleKeyHints => "toggle key hints sidebar",
             Action::ToggleMouse => "toggle mouse (off: select text)",
+            Action::FocusOtherPane => "focus the other pane",
+            Action::NextTab => "next tab",
+            Action::PreviousTab => "previous tab",
             Action::Activate => "activate heading/link",
             Action::OpenLink => "open selected link",
             Action::NextLink => "select next link",

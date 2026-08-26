@@ -195,7 +195,27 @@ Show the help overlay (\fBhelp\fR).
 Close the overlay, prompt or sidebar (\fBcancel\fR).
 .TP
 .BR q ", " Ctrl\-C
-Quit (\fBquit\fR).
+Close the focused document (\fBquit\fR); the last one open ends the session.
+.B Ctrl\-C
+always ends it, whatever else is open.
+.SS Documents
+.TP
+.B Ctrl\-W
+Move the keyboard to the other pane of a split (\fBfocus_other_pane\fR). The
+pane with the keyboard is the one whose status bar name is marked; the other
+one keeps reading, it simply does not get the keys.
+.TP
+.BR Ctrl\-N ", " Ctrl\-P
+Show the next or previous tab (\fBnext_tab\fR, \fBprevious_tab\fR). The tab
+bar appears on the top row as soon as a second tab is open, and lists every
+open document; clicking a label selects it.
+.TP
+.BR Alt\-1 " \(en " Alt\-9
+Show that tab by its number, which is the number the tab bar prints in front
+of the file name. This gesture takes an argument rather than naming an action,
+so it is the one binding that
+.B [keys]
+cannot rebind.
 .SS "Command line"
 .TP
 .B :
@@ -216,10 +236,33 @@ is still possible is listed in the status line.
 .B :help
 shows every setting with the values it takes and the default it started from,
 .B :q
-quits, and
+closes the focused document (and leaves when it is the last one),
+.B :qa
+leaves whatever is open, and
 .B Esc
 leaves the line without applying it. Changes last for the session; the
-configuration file is not written.
+configuration file is not written, and a setting applies to every open
+document, not only to the one it was typed in.
+.IP
+.BI ":open " "TARGET PATH"
+opens another document.
+.B TARGET
+is
+.BR side\-by\-side ,
+.B stacked
+or
+.BR tab :
+beside the current document, above and below it, or in a tab of its own.
+.B vsplit
+and
+.B split
+are accepted for the first two.
+.B Tab
+completes the target and then the path, and a path that does not exist in the
+working directory is looked for next to the document that is open.
+.B :close
+closes the focused document without ever ending the session. A split is
+refused rather than halved on a terminal with no room for two readable panes.
 "#;
 
 /// `.SH CONFIGURATION` — the configuration *file*, as opposed to the

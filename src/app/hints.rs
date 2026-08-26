@@ -68,6 +68,10 @@ pub(crate) struct HintContext {
     /// diple is currently asking for those events, so the terminal cannot
     /// select text with the mouse.
     pub(crate) mouse_on: bool,
+    /// How many tabs are open.
+    pub(crate) tabs: usize,
+    /// How many panes the tab being shown has.
+    pub(crate) panes: usize,
 }
 
 impl Default for HintContext {
@@ -81,6 +85,8 @@ impl Default for HintContext {
             search_active: false,
             mouse_available: false,
             mouse_on: false,
+            tabs: 1,
+            panes: 1,
         }
     }
 }
@@ -157,7 +163,7 @@ fn group(title: &'static str, priority: u8, rows: Vec<Option<HintRow>>) -> Optio
 ///
 /// Drop priorities (higher is dropped first when the terminal is short):
 /// `Move` 0, `View` 1, `Headings` 2, `Fold` 3, `Search` 4, `Links` 5,
-/// `Diagram` 6.
+/// `Diagram` 6, `Documents` 7.
 ///
 /// The ordering is deliberate: what distinguishes diple from `less` is
 /// semantic heading navigation and folding, so those outrank the generic
@@ -273,6 +279,31 @@ fn normal_groups(ctx: &HintContext, keys: &KeyMap) -> Vec<HintGroup> {
         None
     };
 
+    // Only worth a group once there is a second document: with one open,
+    // every key in it would report that there is nothing to switch to.
+    let documents = if ctx.tabs > 1 || ctx.panes > 1 {
+        let mut rows = Vec::new();
+        if ctx.panes > 1 {
+            rows.push(row(keys, Action::FocusOtherPane, "other pane"));
+        }
+        if ctx.tabs > 1 {
+            rows.push(pair(
+                keys,
+                (Action::NextTab, "next tab"),
+                (Action::PreviousTab, "prev tab"),
+                "next/prev tab",
+            ));
+            rows.push(Some(HintRow {
+                keys: "alt-1…9".to_string(),
+                label: "tab by number".to_string(),
+                action: Action::NextTab,
+            }));
+        }
+        group("Documents", 7, rows)
+    } else {
+        None
+    };
+
     let mut view_rows = vec![
         row(keys, Action::ToggleToc, "contents"),
         row(keys, Action::ToggleKeyHints, "hide hints"),
@@ -288,7 +319,14 @@ fn normal_groups(ctx: &HintContext, keys: &KeyMap) -> Vec<HintGroup> {
         view_rows.push(row(keys, Action::ToggleMouse, label));
     }
     view_rows.push(row(keys, Action::Help, "help"));
-    view_rows.push(row(keys, Action::Quit, "quit"));
+    // The same key, and a label that says what it will actually do: with a
+    // second document open it closes this one rather than the session.
+    let quit_label = if ctx.tabs > 1 || ctx.panes > 1 {
+        "close document"
+    } else {
+        "quit"
+    };
+    view_rows.push(row(keys, Action::Quit, quit_label));
 
     [
         group("Move", 0, move_rows),
@@ -314,6 +352,7 @@ fn normal_groups(ctx: &HintContext, keys: &KeyMap) -> Vec<HintGroup> {
         group("Search", 4, search_rows),
         links,
         diagram,
+        documents,
         group("View", 1, view_rows),
     ]
     .into_iter()

@@ -357,6 +357,122 @@ impl Widget for TocSidebar<'_> {
     }
 }
 
+/// Widget drawing the tab bar: one label per open document.
+///
+/// Only drawn when a second document is open — with one tab there is nothing
+/// to switch to and the row is better spent on the document.
+pub(crate) struct TabBar<'a> {
+    /// The label of each tab, in order (usually the file name).
+    pub(crate) labels: &'a [String],
+    /// Index of the tab being shown.
+    pub(crate) active: usize,
+    /// Theme.
+    pub(crate) theme: &'a Theme,
+    /// Colour level.
+    pub(crate) level: ColorLevel,
+}
+
+impl TabBar<'_> {
+    /// The text of each tab, in order, including its number and padding.
+    ///
+    /// The number is part of the label because it is also the key that
+    /// selects the tab (`Alt-1` … `Alt-9`); past nine there is no key, so
+    /// there is no number either.
+    pub(crate) fn labels(&self) -> Vec<String> {
+        self.labels
+            .iter()
+            .enumerate()
+            .map(|(i, label)| match i {
+                0..=8 => format!(" {} {label} ", i + 1),
+                _ => format!(" {label} "),
+            })
+            .collect()
+    }
+
+    /// Where each tab sits in a bar `width` columns wide, as
+    /// `(start column, width)`.
+    ///
+    /// Tabs that no longer fit get no span at all, so a click past the last
+    /// visible one selects nothing rather than the wrong document.
+    pub(crate) fn spans(&self, width: usize) -> Vec<(usize, usize)> {
+        let mut out = Vec::new();
+        let mut column = 0usize;
+        for label in self.labels() {
+            let w = unicode::width(&label);
+            if column + w > width {
+                break;
+            }
+            out.push((column, w));
+            column += w;
+        }
+        out
+    }
+}
+
+impl Widget for TabBar<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.height == 0 || area.width == 0 {
+            return;
+        }
+        let width = usize::from(area.width);
+        let labels = self.labels();
+        let spans = self.spans(width);
+        let mut rendered: Vec<RSpan<'static>> = Vec::new();
+        for (i, (_, _)) in spans.iter().enumerate() {
+            let style = if i == self.active {
+                self.theme.toc_selected
+            } else {
+                self.theme.status_bar
+            };
+            rendered.push(RSpan::styled(
+                labels[i].clone(),
+                to_ratatui(style, self.level),
+            ));
+        }
+        let used: usize = spans.iter().map(|(_, w)| *w).sum();
+        if used < width {
+            // The tabs that did not fit are worth saying so rather than
+            // silently dropping.
+            let hidden = labels.len() - spans.len();
+            let rest = if hidden > 0 {
+                let marker = format!(" +{hidden}");
+                unicode::pad_to_width(&marker, width - used)
+            } else {
+                " ".repeat(width - used)
+            };
+            rendered.push(RSpan::styled(
+                rest,
+                to_ratatui(self.theme.status_bar, self.level),
+            ));
+        }
+        Paragraph::new(RLine::from(rendered)).render(area, buf);
+    }
+}
+
+/// Widget drawing the one-column rule between two side-by-side panes.
+pub(crate) struct PaneDivider<'a> {
+    /// Theme.
+    pub(crate) theme: &'a Theme,
+    /// Colour level.
+    pub(crate) level: ColorLevel,
+    /// Terminal supports Unicode box drawing (ASCII fallback otherwise).
+    pub(crate) unicode: bool,
+}
+
+impl Widget for PaneDivider<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.height == 0 || area.width == 0 {
+            return;
+        }
+        let glyph = if self.unicode { "│" } else { "|" };
+        let style = to_ratatui(self.theme.table_border, self.level);
+        let lines: Vec<RLine<'static>> = (0..area.height)
+            .map(|_| RLine::from(RSpan::styled(glyph.to_string(), style)))
+            .collect();
+        Paragraph::new(lines).render(area, buf);
+    }
+}
+
 /// One row of the key hints sidebar: a key label and what it does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HintRow {
@@ -676,6 +792,27 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn tab_labels_carry_their_number_and_a_click_lands_on_the_right_one() {
+        let theme = Theme::dark();
+        let labels = vec!["README.md".to_string(), "CHANGELOG.md".to_string()];
+        let bar = TabBar {
+            labels: &labels,
+            active: 0,
+            theme: &theme,
+            level: ColorLevel::None,
+        };
+        assert_eq!(bar.labels(), vec![" 1 README.md ", " 2 CHANGELOG.md "]);
+
+        let spans = bar.spans(80);
+        assert_eq!(spans[0], (0, 13));
+        assert_eq!(spans[1], (13, 16));
+        // A bar with room for one label only offers one: a click past it must
+        // select nothing rather than the tab that is not drawn.
+        assert_eq!(bar.spans(14).len(), 1);
+        assert!(bar.spans(5).is_empty());
     }
 
     #[test]

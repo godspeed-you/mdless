@@ -14,12 +14,11 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 use clap::Parser;
-use diple::app::{self, App, AppEnv, AppOptions, DiagramProvider};
+use diple::app::{self, App, AppEnv, AppOptions, Workspace};
 use diple::cli::CliArgs;
 use diple::config::{self, Config, KeyMap};
-use diple::document::{Document, NodeKind};
+use diple::document::Document;
 use diple::layout::{Layout, LayoutOptions};
-use diple::mermaid::select_backend;
 use diple::terminal::{self, lifecycle, Capabilities};
 
 /// Exit code for a usage or configuration problem.
@@ -141,9 +140,12 @@ fn run() -> Result<ExitCode, Failure> {
 
     let color = app::color_level(cfg.color, &caps);
     let theme = app::resolve_theme(&cfg.theme, color);
-    let diagrams = build_diagrams(&doc, &cfg, &caps, usize::from(caps.size.0));
+    let diagrams = app::diagram_provider(&doc, &cfg, &caps, usize::from(caps.size.0));
 
     let term_size = caps.size;
+    // `AppEnv` takes the capabilities by value; the workspace needs them too,
+    // to build every document opened later exactly like this one.
+    let caps_for_workspace = caps.clone();
     lifecycle::install_panic_hook();
     let options = lifecycle::TerminalOptions {
         alternate_screen: true,
@@ -151,10 +153,10 @@ fn run() -> Result<ExitCode, Failure> {
         hide_cursor: true,
         keyboard_enhancement: false,
     };
-    let mut app = App::new(
+    let app = App::new(
         doc,
-        cfg,
-        keymap,
+        cfg.clone(),
+        keymap.clone(),
         AppEnv {
             caps,
             theme,
@@ -168,13 +170,16 @@ fn run() -> Result<ExitCode, Failure> {
             debug: args.debug,
         },
     );
+    // The first document is the whole workspace until `:open` adds another.
+    let mut workspace =
+        Workspace::new(app, cfg, keymap, caps_for_workspace, args.width, args.debug);
     if args.debug {
         eprintln!("diple: first frame ready after {:?}", started.elapsed());
     }
 
     let mut guard = lifecycle::TerminalGuard::enter(options)
         .map_err(|e| Failure::Runtime(format!("cannot enter the terminal UI: {e}")))?;
-    let result = app::events::run(&mut app);
+    let result = app::events::run(&mut workspace);
     // Restore before reporting anything, on every exit path.
     let restored = guard.restore();
     result.map_err(Failure::from)?;
@@ -221,24 +226,6 @@ fn decode(bytes: Vec<u8>, name: &str) -> String {
     }
 }
 
-/// Build the diagram provider, skipping all Mermaid work (including the `mmdc`
-/// `PATH` probe) for documents without diagrams — the startup budget.
-fn build_diagrams(
-    doc: &Document,
-    cfg: &Config,
-    caps: &Capabilities,
-    width: usize,
-) -> DiagramProvider {
-    let has_diagrams = doc
-        .walk()
-        .any(|node| matches!(node.kind, NodeKind::Mermaid(_)));
-    if !has_diagrams {
-        return DiagramProvider::source_only();
-    }
-    let env = app::render_environment(cfg, caps, width, true);
-    DiagramProvider::new(select_backend(&cfg.mermaid, &env))
-}
-
 /// Non-interactive output: the plain rendered document on stdout.
 ///
 /// This is what makes `diple file.md | head` and CI usage work. A closed
@@ -258,7 +245,7 @@ fn print_plain(
     if cfg.max_width > 0 {
         width = width.min(usize::from(cfg.max_width));
     }
-    let diagrams = build_diagrams(doc, cfg, caps, width);
+    let diagrams = app::diagram_provider(doc, cfg, caps, width);
 
     let mut opts = LayoutOptions::new(width, &theme);
     opts.apply_config(cfg);

@@ -51,6 +51,7 @@ use crate::app::diagrams::DiagramProvider;
 use crate::app::hints::HintsState;
 use crate::app::search_ui::SearchState;
 use crate::app::toc::TocState;
+use crate::app::workspace::Request;
 use crate::config::keys::KeyMap;
 use crate::config::schema::Osc8Mode;
 use crate::config::Config;
@@ -186,6 +187,20 @@ pub struct App {
     debug: bool,
     quit: bool,
     children: Vec<Child>,
+    /// What this view is asking the workspace to do, if anything.
+    ///
+    /// An [`App`] only ever knows its own document, so the actions that are
+    /// *about* the set of open documents — opening one, switching tabs,
+    /// leaving for good — are recorded here and carried out by
+    /// [`crate::app::workspace::Workspace`], which owns that set. Taking the
+    /// request is what executes it, so it can never be executed twice.
+    request: Option<Request>,
+    /// How many tabs are open, and how many panes the active tab has.
+    ///
+    /// Pushed in by the workspace before every frame. The document does not
+    /// need it, but the status bar and the key hints do: a key that switches
+    /// panes is only worth offering while there is a second pane.
+    views: (usize, usize),
 }
 
 impl std::fmt::Debug for App {
@@ -261,6 +276,8 @@ impl App {
             debug: opts.debug,
             quit: false,
             children: Vec::new(),
+            request: None,
+            views: (1, 1),
         };
         app.mouse_on = app.config.mouse && app.caps.mouse;
         app.ensure_layout();
@@ -326,8 +343,91 @@ impl App {
     }
 
     /// Whether the app was asked to quit.
+    ///
+    /// With more than one document open this means "close this view"; the
+    /// workspace decides whether that also ends the session.
     pub(crate) fn should_quit(&self) -> bool {
         self.quit
+    }
+
+    /// Take the pending workspace request, if there is one.
+    pub(crate) fn take_request(&mut self) -> Option<Request> {
+        self.request.take()
+    }
+
+    /// Ask the workspace for something only it can do.
+    ///
+    /// The last request of one key press wins; a key produces at most one.
+    pub(crate) fn request(&mut self, request: Request) {
+        self.request = Some(request);
+    }
+
+    /// The effective configuration, so the workspace can notice a `:` command
+    /// that changed it and pass the change on to the other views.
+    pub(crate) fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// Adopt a configuration another view changed.
+    ///
+    /// A setting is a property of the session, not of one document: `:theme
+    /// crt` in the left pane has to reach the right one too. Everything a
+    /// setting can touch is re-derived here, which is the same work
+    /// `apply_effect` does for the view that was typed in.
+    pub(crate) fn adopt_config(&mut self, config: Config) {
+        if self.config == config {
+            return;
+        }
+        self.config = config;
+        self.color = crate::app::color_level(self.config.color, &self.caps);
+        self.theme = crate::app::resolve_theme(&self.config.theme, self.color);
+        self.toc.open = self.config.toc && !self.toc.is_empty();
+        self.hints.open = self.config.key_hints;
+        if self.mode == Mode::Toc && !self.toc.open {
+            self.mode = Mode::Normal;
+        }
+        self.mouse_on = self.config.mouse && self.caps.mouse;
+        self.invalidate();
+        self.ensure_layout();
+    }
+
+    /// Give up the keyboard.
+    ///
+    /// A prompt or an overlay belongs to the view being *typed in*: a `:`
+    /// line left open in a pane nobody is looking at would keep a row of that
+    /// pane reserved for a prompt that cannot be typed into. The TOC sidebar
+    /// stays open, because it is a sidebar rather than a mode — only the
+    /// focus inside it is given back to the document.
+    pub(crate) fn blur(&mut self) {
+        match self.mode {
+            Mode::Command => {
+                self.command.open();
+                self.mode = Mode::Normal;
+            }
+            Mode::Search | Mode::Help | Mode::Toc | Mode::Message => {
+                self.help_scroll = 0;
+                self.mode = Mode::Normal;
+            }
+            Mode::Normal => {}
+        }
+        self.clear_message();
+    }
+
+    /// Tell this view how many tabs and panes the session has.
+    pub(crate) fn set_view_context(&mut self, tabs: usize, panes: usize) {
+        self.views = (tabs.max(1), panes.max(1));
+    }
+
+    /// How many tabs are open, and how many panes the active tab has.
+    pub(crate) fn views(&self) -> (usize, usize) {
+        self.views
+    }
+
+    /// Pretend the terminal reports mouse events, for tests that click.
+    #[cfg(test)]
+    pub(crate) fn enable_mouse_for_test(&mut self) {
+        self.caps.mouse = true;
+        self.mouse_on = true;
     }
 
     /// What the help overlay is currently showing.

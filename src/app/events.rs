@@ -32,7 +32,7 @@ use std::io::{self, Write};
 use std::time::Duration;
 
 use crossterm::cursor::{MoveTo, RestorePosition, SavePosition};
-use crossterm::event::{self, Event};
+use crossterm::event::{self};
 use crossterm::queue;
 use crossterm::style::Print;
 use ratatui::backend::CrosstermBackend;
@@ -40,6 +40,7 @@ use ratatui::layout::Rect;
 use ratatui::Terminal;
 
 use crate::app::state::{App, HelpKind, Mode};
+use crate::app::workspace::Workspace;
 use crate::render::primitives::LineKind;
 use crate::render::terminal::{DocumentView, HelpOverlay, KeyHintsSidebar, StatusBar, TocSidebar};
 
@@ -121,9 +122,22 @@ fn centered(area: Rect, pct_x: u16, pct_y: u16) -> Rect {
     )
 }
 
-/// Draw one frame.
+/// Draw one frame of a single-view session.
+///
+/// The whole terminal is the document's, which is what every test of the draw
+/// pass wants; [`draw_in`] is the general form the workspace uses.
+#[cfg(test)]
 pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
-    let all = areas(app, frame.area());
+    draw_in(app, frame, frame.area(), true);
+}
+
+/// Draw one view into `area`.
+///
+/// `focused` says whether this view has the keyboard. An unfocused pane draws
+/// exactly the same document — only the marker in front of its file name
+/// differs, so the reader can see where the next key will land.
+pub(crate) fn draw_in(app: &App, frame: &mut ratatui::Frame<'_>, area: Rect, focused: bool) {
+    let all = areas(app, area);
 
     // A theme may own the screen itself rather than borrowing the terminal's
     // background. Painted first, under everything, and a no-op for a theme
@@ -134,7 +148,7 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
                 app.theme.screen,
                 app.color,
             )),
-            frame.area(),
+            area,
         );
     }
 
@@ -188,14 +202,31 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
         _ => app.search.prompt(),
     };
     let message = status_message(app);
+    // With a second pane on screen the status bar is also the focus
+    // indicator: the marker says which document the next key belongs to.
+    let name = if app.views().1 > 1 {
+        let marker = if focused {
+            if app.caps.unicode_box {
+                "▸ "
+            } else {
+                "> "
+            }
+        } else {
+            "  "
+        };
+        format!("{marker}{}", app.filename())
+    } else {
+        app.filename().to_string()
+    };
     frame.render_widget(
         StatusBar {
-            filename: app.filename(),
+            filename: &name,
             percent: app.percent(),
             line: app.bottom_line(),
             total: app.tree().len(),
             message: message.as_deref(),
-            search: matches!(app.mode(), Mode::Search | Mode::Command).then_some(prompt.as_str()),
+            search: (focused && matches!(app.mode(), Mode::Search | Mode::Command))
+                .then_some(prompt.as_str()),
             theme: &app.theme,
             level: app.color,
             unicode: app.caps.unicode_box,
@@ -204,7 +235,7 @@ pub(crate) fn draw(app: &App, frame: &mut ratatui::Frame<'_>) {
     );
 
     if app.mode() == Mode::Help {
-        let area = centered(frame.area(), 80, 80);
+        let area = centered(area, 80, 80);
         let entries = match app.help_kind() {
             HelpKind::Settings => crate::config::settings::help_entries(),
             HelpKind::Keys => app.help_entries(),
@@ -239,11 +270,9 @@ fn status_message(app: &App) -> Option<String> {
             HelpKind::Keys => "help: j/k scroll, Esc close".to_string(),
         }),
         // What Tab last offered, until the next keystroke replaces it.
-        Mode::Command => Some(
-            app.command
-                .candidate_hint()
-                .unwrap_or_else(|| "Tab completes, `:help` lists every setting".to_string()),
-        ),
+        Mode::Command => Some(app.command.candidate_hint().unwrap_or_else(|| {
+            "Tab completes; `:help` lists settings, `:open` adds a document".to_string()
+        })),
         _ if app.search.has_matches() => Some(app.search.prompt()),
         _ => None,
     }
@@ -357,12 +386,12 @@ pub(crate) fn draw_images(
 ///
 /// Kitty keeps images until they are deleted explicitly; the other protocols
 /// are erased by repainting the cells, which ratatui does after the clear.
-fn clear_images(app: &App, out: &mut impl Write) -> io::Result<()> {
+fn clear_images(caps: &crate::terminal::Capabilities, out: &mut impl Write) -> io::Result<()> {
     use crate::terminal::capabilities::ImageSupport;
-    if app.caps.images == ImageSupport::Kitty {
+    if caps.images == ImageSupport::Kitty {
         let sequence = crate::terminal::protocols::maybe_tmux(
             "\x1b_Ga=d\x1b\\".to_string(),
-            app.caps.tmux_passthrough,
+            caps.tmux_passthrough,
         );
         out.write_all(sequence.as_bytes())?;
         out.flush()?;
@@ -430,24 +459,29 @@ fn draw_hyperlinks(app: &App, content: Rect, out: &mut impl Write) -> io::Result
 ///
 /// The caller owns the [`crate::terminal::TerminalGuard`]; this function never
 /// enters or leaves raw mode itself.
-pub fn run(app: &mut App) -> io::Result<()> {
+///
+/// It drives a [`Workspace`] rather than a single [`App`], because what is on
+/// screen may be one document or four: the loop asks the workspace for the
+/// panes and their rectangles and then does per pane exactly what it used to
+/// do for the one.
+pub fn run(workspace: &mut Workspace) -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     // No initial `Terminal::clear()`: the alternate screen is already blank,
     // and `clear` costs a cursor-position query that some terminals (and
     // pty harnesses) never answer.
     if let Ok(size) = terminal.size() {
-        app.resize(size.width, size.height);
+        workspace.resize(size.width, size.height);
     }
 
     let mut previous_images: Vec<PlacedImage> = Vec::new();
     // What the terminal was last told about mouse reporting. `App` only holds
     // the flag; the escape sequence is written here, where the terminal is
     // owned and no frame is half-drawn.
-    let mut mouse_on = app.mouse_on();
+    let mut mouse_on = workspace.mouse_on();
     let mut redraw = true;
     loop {
-        if app.mouse_on() != mouse_on {
-            mouse_on = app.mouse_on();
+        if workspace.mouse_on() != mouse_on {
+            mouse_on = workspace.mouse_on();
             // Best effort: a terminal that refuses the sequence simply keeps
             // reporting (or not), and the flag still says what diple reads.
             let _ = crate::terminal::lifecycle::set_mouse_reporting(mouse_on);
@@ -458,28 +492,36 @@ pub fn run(app: &mut App) -> io::Result<()> {
             // that draws them: the reader never sees a code block
             // repaint after the fact, and the tree keeps its line count, so
             // the viewport anchor cannot move.
-            app.prepare_frame();
-            let frame_area = Rect::new(0, 0, app.size().0, app.size().1);
-            let layout = areas(app, frame_area);
-            let images = placed_images(app, layout.content);
+            workspace.prepare_frame();
+            // One flat list for the "did the images move?" test, and the
+            // per-pane split for the painting itself: an image is encoded
+            // from the registry of the view that owns it.
+            let per_pane: Vec<Vec<PlacedImage>> = workspace
+                .pane_contents()
+                .into_iter()
+                .map(|(app, content)| placed_images(app, content))
+                .collect();
+            let images: Vec<PlacedImage> = per_pane.iter().flatten().copied().collect();
             if !previous_images.is_empty() && previous_images != images {
                 let mut out = io::stdout();
-                let _ = clear_images(app, &mut out);
+                let _ = clear_images(workspace.caps(), &mut out);
                 // Best effort: a terminal that cannot report its cursor
                 // position simply keeps the stale cells until they change.
                 let _ = terminal.clear();
             }
-            terminal.draw(|frame| draw(app, frame))?;
+            terminal.draw(|frame| workspace.draw(frame))?;
             let mut out = io::stdout();
             // Image and hyperlink painting is best effort: a failure must
             // never take the pager down.
-            let _ = draw_images(app, &images, &mut out);
-            let _ = draw_hyperlinks(app, layout.content, &mut out);
+            for ((app, content), placed) in workspace.pane_contents().into_iter().zip(&per_pane) {
+                let _ = draw_images(app, placed, &mut out);
+                let _ = draw_hyperlinks(app, content, &mut out);
+            }
             previous_images = images;
             redraw = false;
         }
 
-        if app.should_quit() {
+        if workspace.should_quit() {
             return Ok(());
         }
 
@@ -488,30 +530,20 @@ pub fn run(app: &mut App) -> io::Result<()> {
             // highlight the code just outside the viewport. It is bounded to a
             // screen in each direction, so the process settles back to using
             // no CPU once the reader's surroundings are highlighted.
-            app.realize_ahead();
-            app.reap_children();
+            workspace.realize_ahead();
+            workspace.reap_children();
             continue;
         }
         // Drain everything that is already queued before redrawing, so a
         // held-down key or a burst of mouse events cannot stall the loop.
         loop {
-            handle_event(app, event::read()?);
+            workspace.handle_event(event::read()?);
             redraw = true;
-            if app.should_quit() || !event::poll(Duration::from_millis(0))? {
+            if workspace.should_quit() || !event::poll(Duration::from_millis(0))? {
                 break;
             }
         }
-        app.reap_children();
-    }
-}
-
-/// Dispatch one terminal event.
-pub(crate) fn handle_event(app: &mut App, event: Event) {
-    match event {
-        Event::Key(key) => app.handle_key(&key),
-        Event::Mouse(mouse) => app.handle_mouse(&mouse),
-        Event::Resize(cols, rows) => app.resize(cols, rows),
-        Event::FocusGained | Event::FocusLost | Event::Paste(_) => {}
+        workspace.reap_children();
     }
 }
 
@@ -686,21 +718,36 @@ mod tests {
         }
     }
 
+    /// A workspace over one document, the shape every session starts in.
+    fn single(src: &str, size: (u16, u16)) -> Workspace {
+        Workspace::new(
+            app(src, size),
+            crate::config::Config::default(),
+            crate::config::keys::KeyMap::with_defaults(),
+            crate::terminal::capabilities::Capabilities::default(),
+            None,
+            false,
+        )
+    }
+
     #[test]
     fn a_resize_event_reaches_the_app() {
-        let mut a = app("# T\n\ntext\n", (80, 24));
-        handle_event(&mut a, Event::Resize(40, 10));
-        assert_eq!(a.size(), (40, 10));
+        let mut ws = single("# T\n\ntext\n", (80, 24));
+        ws.handle_event(crossterm::event::Event::Resize(40, 10));
+        assert_eq!(ws.focused().size(), (40, 10));
     }
 
     #[test]
     fn a_key_event_reaches_the_app() {
-        let mut a = app("# T\n\n".to_string().as_str(), (80, 24));
-        handle_event(
-            &mut a,
-            Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+        let mut ws = single("# T\n\n", (80, 24));
+        ws.handle_event(crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('q'),
+            KeyModifiers::NONE,
+        )));
+        assert!(
+            ws.should_quit(),
+            "the last document leaving ends the session"
         );
-        assert!(a.should_quit());
     }
 
     /// A backend that always produces a small image, so the layout engine

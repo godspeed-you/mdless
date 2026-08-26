@@ -66,6 +66,9 @@ previous_heading = "["
 toggle_toc = "t"
 toggle_key_hints = "K"
 toggle_fold = "za"
+focus_other_pane = "ctrl-w"
+next_tab = "ctrl-n"
+previous_tab = "ctrl-p"
 ```
 
 ## Keys

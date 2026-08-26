@@ -33,6 +33,8 @@ diple README.md
   now, following the mode and the cursor context
 - **Command line** — `:` changes any setting while running, with completion and
   a `:help` listing every key, its values and its default
+- **Several documents at once** — `:open` puts another document side by side,
+  above and below, or in a tab of its own, with `Tab` completion for the path
 - **Terminal-aware tables** — column widths computed from content and terminal
   width, with wrapping or horizontal scrolling
 - **Syntax highlighting** — fenced code blocks, optional line numbers
@@ -121,10 +123,29 @@ text and exits — so `diple README.md | head -20` and CI usage behave sensibly.
 | `m` | hand the mouse back to the terminal, to select text with it |
 | `:` | command line: `:center = false`, `:theme crt`, `:help` |
 | `s` | toggle Mermaid source view |
+| `Ctrl-W` | focus the other pane of a split |
+| `Ctrl-N` `Ctrl-P` | next / previous tab |
+| `Alt-1` … `Alt-9` | tab by number |
 | `?` | help |
-| `q` | quit |
+| `q` | close the document; the last one quits |
 
 Full list, including how to rebind: [docs/keybindings.md](docs/keybindings.md).
+
+### Several documents at once
+
+```text
+:open side-by-side ../notes.md   # beside the current document
+:open stacked CHANGELOG.md       # above and below it
+:open tab docs/configuration.md  # in a tab of its own
+:close                           # close this document, keep the session
+```
+
+`Tab` completes the target and then the path; a relative path that is not in
+the working directory is looked for next to the document that is open.
+`Ctrl-W` moves the keyboard between the two panes of a split, `Ctrl-N` and
+`Ctrl-P` walk the tabs, and `Alt-1` … `Alt-9` pick one by the number the tab
+bar prints. A tab bar appears on the top row only once a second tab is open.
+Settings apply to the whole session: `:theme crt` in one pane changes both.
 
 ### Options
 

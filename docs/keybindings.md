@@ -82,7 +82,29 @@ links are also emitted as native terminal hyperlinks.
 | `s` | `toggle_mermaid_source` | toggle Mermaid source view for the diagram at the cursor |
 | `?`, `F1` | `help` | show the help overlay |
 | `Esc` | `cancel` | close the overlay, prompt or sidebar |
-| `q`, `Ctrl-C` | `quit` | quit |
+| `q`, `Ctrl-C` | `quit` | close the focused document; the last one quits |
+
+## Documents
+
+| Keys | Action name | Description |
+|---|---|---|
+| `Ctrl-W` | `focus_other_pane` | move the keyboard to the other pane of a split |
+| `Ctrl-N` | `next_tab` | show the next tab |
+| `Ctrl-P` | `previous_tab` | show the previous tab |
+| `Alt-1` … `Alt-9` | — | show that tab by its number |
+
+`:open` (below) is what puts a second document on screen. Two panes share the
+body left and right (`side-by-side`) or above and below (`stacked`); the pane
+with the keyboard is the one whose status bar marks its file name. A tab bar
+appears on the top row as soon as a second tab is open and prints each tab's
+number in front of its name — that number is its `Alt` key.
+
+`Alt-1` … `Alt-9` is one gesture with an argument rather than nine actions, so
+it is the only binding `[keys]` cannot change. Everything else here is a
+normal action name.
+
+`q` and `:q` close the focused pane, then the focused tab, and only leave when
+the last document is closed. `Ctrl-C` always leaves at once.
 
 Inside the TOC sidebar, `j`/`k` move the selection and `Enter` jumps to the
 heading; the section currently shown in the document is marked. A jump keeps
@@ -109,8 +131,24 @@ work, as does a leading `set` for the muscle memory it comes from.
 | `:center = false` | set it, and lay the document out again |
 | `Tab` | complete the key, or the value once a separator is typed |
 | `:help` | every setting, its accepted values and its default |
-| `:q` | quit |
+| `:open side-by-side PATH` | open a document beside this one |
+| `:open stacked PATH` | open a document above and below this one |
+| `:open tab PATH` | open a document in a tab of its own |
+| `:close` | close the focused document, never the session |
+| `:q` | close the focused document; the last one quits |
+| `:qa` | quit, whatever is open |
 | `Esc` | leave the line without applying it |
+
+`:open` completes its target and then its path with `Tab`, directory by
+directory. A relative path is looked for in the working directory first and
+then next to the document that is open, so `:open tab notes.md` works while
+reading `docs/index.md`. `vsplit` and `split` are accepted for `side-by-side`
+and `stacked`. A split is refused, with a message, on a terminal that cannot
+give both panes a readable width — the document is not halved into two
+unreadable columns.
+
+A setting typed at `:` applies to every open document, not only to the pane it
+was typed in.
 
 Completion stops where the answer stops being unique: it fills in the longest
 prefix every candidate shares and lists the rest in the status line. A key that
@@ -138,7 +176,7 @@ The sidebar takes its width from the document area. In a terminal too narrow
 to leave at least 40 columns for the document it hides itself, and if both
 sidebars are open and only one fits, the table of contents wins. When the
 groups are taller than the screen, the blank rows between them go first, then
-whole groups in this order: Diagram, Links, Search, Fold, Headings — heading
+whole groups in this order: Documents, Diagram, Links, Search, Fold, Headings — heading
 navigation and folding outrank the generic pager rows, and `Move` and `View`
 (which holds `q`, `?` and `K` itself) are the last to go.
 

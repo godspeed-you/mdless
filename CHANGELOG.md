@@ -11,6 +11,34 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+### Added
+
+- **Several documents in one session.** `:open <side-by-side|stacked|tab>
+  <path>` opens another document beside the current one, above and below it,
+  or in a tab of its own. `Tab` completes the target and then the path, and a
+  relative path that is not in the working directory is looked for next to the
+  document that is already open. `vsplit` and `split` are accepted for the two
+  split targets.
+- **Navigation between the open documents.** `Ctrl-W` moves the keyboard to
+  the other pane of a split, `Ctrl-N` and `Ctrl-P` walk the tabs, and `Alt-1` …
+  `Alt-9` select a tab by the number the new tab bar prints in front of its
+  name. The tab bar only appears once a second tab is open, and clicking a
+  label selects that tab; clicking into a pane moves the keyboard there, while
+  the wheel scrolls whichever pane the pointer is over. `focus_other_pane`,
+  `next_tab` and `previous_tab` are bindable in `[keys]` like every other
+  action.
+- **`:close`**, which closes the focused document but never ends the session,
+  and **`:qa`**, which ends it whatever is open.
+
+### Changed
+
+- `q` and `:q` now close the focused document, and only leave when it is the
+  last one open — `Ctrl-C` still ends the session immediately. With a single
+  document, which is every session that never runs `:open`, nothing about
+  either key changes.
+- A setting typed at `:` applies to every open document rather than only to
+  the pane it was typed in: a setting is a property of the session.
+
 ## [1.1.0] - 2026-08-25
 
 A command line for changing settings while reading, two themes, and the

@@ -5,8 +5,64 @@
 //! [`crate::app::state::App`] owns the buffer and executes what
 //! [`parse`] returns, which keeps the grammar testable on its own and stops
 //! the command line from growing a second idea of what a setting is.
+//!
+//! The one exception is `:open`, whose last argument is a path: only the
+//! filesystem knows what may be typed there, so that completion is delegated
+//! to [`crate::app::paths`].
 
+use crate::app::paths;
 use crate::config::settings;
+
+/// Where `:open` puts the document it opens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OpenTarget {
+    /// A new tab, which becomes the active one.
+    Tab,
+    /// Beside the current document, left and right.
+    SideBySide,
+    /// Above and below the current document.
+    Stacked,
+}
+
+impl OpenTarget {
+    /// The spellings accepted after `:open`, in completion order.
+    ///
+    /// The first of each row is the canonical one — what completion produces
+    /// and what the help lists; the rest are the words readers of other
+    /// pagers and of vim already have in their fingers.
+    const SPELLINGS: &'static [(&'static str, OpenTarget)] = &[
+        ("side-by-side", OpenTarget::SideBySide),
+        ("stacked", OpenTarget::Stacked),
+        ("tab", OpenTarget::Tab),
+        ("vsplit", OpenTarget::SideBySide),
+        ("split", OpenTarget::Stacked),
+    ];
+
+    /// The canonical names, for completion and error messages.
+    pub(crate) fn names() -> Vec<&'static str> {
+        Self::SPELLINGS
+            .iter()
+            .take(3)
+            .map(|(name, _)| *name)
+            .collect()
+    }
+
+    fn parse(word: &str) -> Option<OpenTarget> {
+        Self::SPELLINGS
+            .iter()
+            .find(|(name, _)| *name == word)
+            .map(|(_, target)| *target)
+    }
+}
+
+/// What `:open` says when it was not given both of its arguments.
+const OPEN_USAGE: &str = "usage: open <side-by-side|stacked|tab> <path>";
+
+/// The command words `:` knows, beside every setting name.
+///
+/// Completed like a setting name, but they take no `=`, so completion gives
+/// them a space instead of a separator.
+const COMMANDS: &[&str] = &["open", "close", "help", "quit", "qall"];
 
 /// What a typed line asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,8 +71,17 @@ pub(crate) enum Command {
     Empty,
     /// Show every setting with its values and default (`:help`).
     Help,
-    /// Leave (`:q`, `:quit`).
+    /// Close the focused view; the last one leaves (`:q`, `:quit`).
     Quit,
+    /// Leave, whatever is open (`:qa`, `:qall`).
+    QuitAll,
+    /// Close the focused view, but never leave (`:close`).
+    Close,
+    /// Open another document (`:open tab notes.md`).
+    Open(OpenTarget, String),
+    /// A command that was recognised but not usable as typed; the string is
+    /// the message to show.
+    Invalid(String),
     /// Report the current value of a key (`:center`).
     Show(String),
     /// Assign a value (`:center = false`, `:center false`).
@@ -40,7 +105,12 @@ pub(crate) fn parse(line: &str) -> Command {
     match line {
         "help" | "h" | "?" => return Command::Help,
         "q" | "quit" => return Command::Quit,
+        "qa" | "qall" | "quitall" => return Command::QuitAll,
+        "close" => return Command::Close,
         _ => {}
+    }
+    if let Some(rest) = strip_word(line, "open") {
+        return parse_open(rest);
     }
 
     let (key, value) = split(line);
@@ -52,6 +122,38 @@ pub(crate) fn parse(line: &str) -> Command {
         None => Command::Unknown(key),
         Some(value) => Command::Set(key, value.to_string()),
     }
+}
+
+/// `line` without a leading `word`, when it starts with that word followed by
+/// whitespace or nothing at all.
+///
+/// `:opener` must not parse as `:open er`, which is why this asks for the
+/// separator rather than for a prefix.
+fn strip_word<'a>(line: &'a str, word: &str) -> Option<&'a str> {
+    let rest = line.strip_prefix(word)?;
+    if rest.is_empty() {
+        return Some(rest);
+    }
+    rest.starts_with(char::is_whitespace)
+        .then(|| rest.trim_start())
+}
+
+/// Parse what follows `:open`.
+///
+/// The path is everything after the target word, untrimmed at its end only by
+/// the outer trim: a file name may contain spaces, so it is not a token.
+fn parse_open(rest: &str) -> Command {
+    let (word, path) = match rest.split_once(char::is_whitespace) {
+        Some((word, path)) => (word, path.trim()),
+        None => (rest, ""),
+    };
+    let Some(target) = OpenTarget::parse(word) else {
+        return Command::Invalid(OPEN_USAGE.to_string());
+    };
+    if path.is_empty() {
+        return Command::Invalid(OPEN_USAGE.to_string());
+    }
+    Command::Open(target, path.to_string())
 }
 
 /// Split a line into its key and, if there is one, its value.
@@ -89,19 +191,37 @@ pub(crate) fn complete(line: &str) -> Completion {
     let trimmed = line.trim_start();
     let indent = &line[..line.len() - trimmed.len()];
 
+    // `:open` has a grammar of its own — a target word and then a path — so
+    // it takes over completion as soon as its name is typed.
+    if let Some(rest) = strip_word(trimmed, "open") {
+        return complete_open(indent, rest);
+    }
+
     // A value is being typed once a separator is there, even with nothing
     // after it: `:theme ` completes the theme names, not the key names.
     let (key, value) = split_for_completion(trimmed);
     let Some(partial) = value else {
-        let names = settings::matching(key);
+        // Command words complete beside the setting names: from the reader's
+        // side `:close` and `:center` are both just things `:` accepts, and
+        // one list is what makes them discoverable.
+        let commands: Vec<&'static str> = COMMANDS
+            .iter()
+            .copied()
+            .filter(|name| name.starts_with(key))
+            .collect();
+        let mut names = settings::matching(key);
+        names.extend(commands.iter().copied());
         if names.is_empty() {
             return unchanged(Vec::new());
         }
         let shared = common_prefix(&names);
-        let line = if names.len() == 1 {
-            format!("{indent}{shared} = ")
-        } else {
-            format!("{indent}{shared}")
+        // A unique setting gains its separator, because the next keystroke is
+        // its value. A unique command gains a space: it takes arguments, or
+        // nothing at all, but never an `=`.
+        let line = match (names.len(), commands.len()) {
+            (1, 1) => format!("{indent}{shared} "),
+            (1, _) => format!("{indent}{shared} = "),
+            _ => format!("{indent}{shared}"),
         };
         return Completion {
             line,
@@ -135,6 +255,53 @@ pub(crate) fn complete(line: &str) -> Completion {
         } else {
             values.iter().map(|v| (*v).to_string()).collect()
         },
+    }
+}
+
+/// Complete `:open`, whose two arguments are a target word and a path.
+///
+/// `rest` is everything after the command name, already trimmed on the left.
+fn complete_open(indent: &str, rest: &str) -> Completion {
+    let targets = OpenTarget::names();
+    let Some((word, partial)) = rest.split_once(char::is_whitespace) else {
+        // Still typing the target.
+        let matches: Vec<&str> = targets
+            .iter()
+            .copied()
+            .filter(|name| name.starts_with(rest))
+            .collect();
+        if matches.is_empty() {
+            // Nothing matches what is typed, so say what the word may be
+            // rather than completing to nothing.
+            return Completion {
+                line: format!("{indent}open {rest}"),
+                candidates: targets.iter().map(|n| (*n).to_string()).collect(),
+            };
+        }
+        let shared = common_prefix(&matches);
+        return Completion {
+            line: if matches.len() == 1 {
+                format!("{indent}open {shared} ")
+            } else {
+                format!("{indent}open {shared}")
+            },
+            candidates: if matches.len() == 1 {
+                Vec::new()
+            } else {
+                matches.iter().map(|n| (*n).to_string()).collect()
+            },
+        };
+    };
+    if !targets.contains(&word) && OpenTarget::parse(word).is_none() {
+        return Completion {
+            line: format!("{indent}open {rest}"),
+            candidates: targets.iter().map(|n| (*n).to_string()).collect(),
+        };
+    }
+    let (completed, candidates) = paths::complete(partial.trim_start());
+    Completion {
+        line: format!("{indent}open {word} {completed}"),
+        candidates,
     }
 }
 
@@ -342,6 +509,95 @@ mod tests {
 
         while state.backspace() {}
         assert!(!state.backspace(), "an empty line reports it");
+    }
+
+    #[test]
+    fn open_takes_a_target_and_a_path_and_says_so_when_it_does_not() {
+        assert_eq!(
+            parse("open tab notes.md"),
+            Command::Open(OpenTarget::Tab, "notes.md".into())
+        );
+        assert_eq!(
+            parse("open side-by-side ../a b.md"),
+            Command::Open(OpenTarget::SideBySide, "../a b.md".into()),
+            "a path may contain spaces"
+        );
+        assert_eq!(
+            parse("open vsplit x.md"),
+            Command::Open(OpenTarget::SideBySide, "x.md".into()),
+            "vim's word for it works too"
+        );
+        assert_eq!(
+            parse("open split x.md"),
+            Command::Open(OpenTarget::Stacked, "x.md".into())
+        );
+        assert!(matches!(parse("open tab"), Command::Invalid(_)), "no path");
+        assert!(
+            matches!(parse("open x.md"), Command::Invalid(_)),
+            "no target"
+        );
+        assert!(matches!(parse("open"), Command::Invalid(_)));
+        // A setting whose name merely starts with `open` is still a setting.
+        assert_eq!(
+            parse("links.opener = xdg-open"),
+            Command::Set("links.opener".into(), "xdg-open".into())
+        );
+    }
+
+    #[test]
+    fn the_words_that_close_things_are_told_apart() {
+        assert_eq!(parse("close"), Command::Close);
+        assert_eq!(parse("qa"), Command::QuitAll);
+        assert_eq!(parse("qall"), Command::QuitAll);
+        assert_eq!(parse("q"), Command::Quit);
+    }
+
+    #[test]
+    fn commands_complete_beside_the_settings_and_take_a_space_not_a_separator() {
+        let c = complete("op");
+        assert_eq!(c.line, "open ", "a unique command gains a space");
+        assert!(c.candidates.is_empty());
+
+        let c = complete("clo");
+        assert_eq!(c.line, "close ");
+
+        // `c` matches settings and a command; both are offered.
+        let c = complete("c");
+        assert!(c.candidates.contains(&"center".to_string()));
+        assert!(c.candidates.contains(&"close".to_string()));
+
+        let c = complete("open ");
+        assert_eq!(c.line, "open ", "the targets share no prefix");
+        assert_eq!(c.candidates, vec!["side-by-side", "stacked", "tab"]);
+
+        let c = complete("open ta");
+        assert_eq!(c.line, "open tab ", "a unique target gains its space");
+        assert!(c.candidates.is_empty());
+
+        let c = complete("open s");
+        assert_eq!(c.line, "open s");
+        assert_eq!(c.candidates, vec!["side-by-side", "stacked"]);
+
+        let c = complete("open nonsense ");
+        assert_eq!(
+            c.candidates,
+            vec!["side-by-side", "stacked", "tab"],
+            "a target nobody knows is answered with the ones that exist"
+        );
+    }
+
+    #[test]
+    fn the_last_argument_of_open_completes_against_the_filesystem() {
+        let dir = std::env::temp_dir().join(format!("diple-open-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        std::fs::write(dir.join("readme.md"), "# r").expect("write");
+        let base = dir.display().to_string();
+
+        let c = complete(&format!("open tab {base}/re"));
+        assert_eq!(c.line, format!("open tab {base}/readme.md"));
+        assert!(c.candidates.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

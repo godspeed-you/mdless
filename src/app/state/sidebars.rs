@@ -101,6 +101,8 @@ impl App {
             search_active: self.search.has_matches(),
             mouse_available: self.caps.mouse,
             mouse_on: self.mouse_on,
+            tabs: self.views.0,
+            panes: self.views.1,
         }
     }
 

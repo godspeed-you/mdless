@@ -20,6 +20,7 @@
 
 use super::navigate::FoldOp;
 use super::{App, HelpKind, Mode};
+use crate::app::workspace::Request;
 use crate::config::actions::Action;
 use crate::config::keys::KeyMatch;
 use crate::config::settings;
@@ -37,10 +38,26 @@ impl App {
         }
         self.clear_message();
 
-        // Ctrl-C always quits, whatever the mode.
+        // Ctrl-C always quits, whatever the mode — and whatever else is
+        // open: it is the panic key, not a way to close one document.
         if event.code == KeyCode::Char('c') && event.modifiers.contains(KeyModifiers::CONTROL) {
             self.quit = true;
+            self.request(Request::QuitAll);
             return;
+        }
+
+        // Alt-1 … Alt-9 select a tab by its number. Handled here rather than
+        // as nine bindable actions: it is one gesture with an argument, and
+        // `[keys]` maps names to actions, not to arguments.
+        if event.modifiers.contains(KeyModifiers::ALT) {
+            if let KeyCode::Char(c @ '1'..='9') = event.code {
+                if matches!(self.mode, Mode::Normal | Mode::Message) {
+                    self.mode = Mode::Normal;
+                    let index = c as usize - '1' as usize;
+                    self.request(Request::GotoTab(index));
+                    return;
+                }
+            }
         }
 
         if self.mode == Mode::Search {
@@ -157,6 +174,13 @@ impl App {
         match parse(line) {
             Command::Empty => {}
             Command::Quit => self.quit = true,
+            Command::Close => self.request(Request::Close),
+            Command::QuitAll => {
+                self.quit = true;
+                self.request(Request::QuitAll);
+            }
+            Command::Open(target, path) => self.request(Request::Open { target, path }),
+            Command::Invalid(message) => self.set_message(message),
             Command::Help => {
                 self.help_kind = HelpKind::Settings;
                 self.help_scroll = 0;
@@ -312,6 +336,9 @@ impl App {
             Action::ToggleToc => self.toggle_toc(),
             Action::ToggleKeyHints => self.toggle_key_hints(),
             Action::ToggleMouse => self.toggle_mouse(),
+            Action::FocusOtherPane => self.request(Request::FocusOtherPane),
+            Action::NextTab => self.request(Request::NextTab),
+            Action::PreviousTab => self.request(Request::PreviousTab),
             Action::Activate => self.activate(),
             Action::OpenLink => self.open_selected_link(),
             Action::NextLink => self.cycle_link(true),
