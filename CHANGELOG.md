@@ -11,6 +11,10 @@ at the top for work that has not shipped yet.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-26
+
+Several documents in one session: side by side, stacked or in tabs.
+
 ### Added
 
 - **Several documents in one session.** `:open <side-by-side|stacked|tab>
@@ -207,6 +211,8 @@ therefore still open:
 - Packaging: `.deb`, `.rpm`, an Arch `PKGBUILD`, standalone Linux tarballs, a
   man page and bash/zsh/fish completions.
 
-[Unreleased]: https://github.com/godspeed-you/diple/compare/v1.0.0...main
+[Unreleased]: https://github.com/godspeed-you/diple/compare/v1.2.0...main
+[1.2.0]: https://github.com/godspeed-you/diple/releases/tag/v1.2.0
+[1.1.0]: https://github.com/godspeed-you/diple/releases/tag/v1.1.0
 [1.0.0]: https://github.com/godspeed-you/diple/releases/tag/v1.0.0
 [0.2.0]: https://github.com/godspeed-you/diple/releases/tag/v0.2.0

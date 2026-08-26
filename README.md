@@ -51,10 +51,10 @@ diple README.md
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./diple_1.1.0_amd64.deb
+sudo apt install ./diple_1.2.0_amd64.deb
 
 # Fedora / RHEL
-sudo dnf install ./diple-1.1.0.x86_64.rpm
+sudo dnf install ./diple-1.2.0.x86_64.rpm
 
 # Arch Linux
 cd packaging/arch && makepkg -si
